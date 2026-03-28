@@ -195,9 +195,10 @@ func startTempPoller() {
 		poll := func() {
 			out, err := exec.Command("powermetrics", "--samplers", "smc", "-n", "1", "-i", "1").Output()
 			if err != nil {
+				log.Printf("[temp] powermetrics error: %v", err)
 				return
 			}
-			re := regexp.MustCompile(`CPU die temperature:\s*([\d.]+)`)
+			re := regexp.MustCompile(`(?i)CPU (?:P-cluster |E-cluster )?Die Temperature:\s*([\d.]+)`)
 			if m := re.FindSubmatch(out); m != nil {
 				var t float64
 				fmt.Sscanf(string(m[1]), "%f", &t)
