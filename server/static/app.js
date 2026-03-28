@@ -1365,31 +1365,42 @@ let appsActiveCat   = "all";
 let appsModalES     = null; // active EventSource for streaming
 
 // App icon definitions: [bg gradient, text/symbol, text color]
-const APP_ICONS = {
-  "ollama":     ["#1a2e1f,#0f2318", "🦙", null],
-  "open-webui": ["#1a2430,#0f1e2d", "⊙", "#4a90d9"],
-  "lm-studio":  ["#1e1a2e,#150f23", "◈", "#9b59b6"],
-  "jan":        ["#1e1a2e,#150f23", "Jn", "#a78bfa"],
-  "gpt4all":    ["#1a2e1f,#0f2318", "G4", "#30d158"],
-  "localai":    ["#1e2a1a,#122010", "AI", "#56d668"],
-  "tailscale":  ["#15202b,#0d1820", "Ts", "#2563eb"],
-  "rustdesk":   ["#2b1515,#1f0d0d", "Rd", "#ef4444"],
-  "zerotier":   ["#15202b,#0d1820", "ZT", "#3b82f6"],
-  "docker":     ["#122035,#0a1828", "🐳", null],
-  "vscode":     ["#1a2030,#101828", "⌨", "#4a90d9"],
-  "iterm2":     ["#1e1e1e,#141414", ">_", "#a0a0a0"],
+// Apps with official SVG icons from Simple Icons CDN (simpleicons.org)
+const APP_SIMPLE_ICONS = {
+  "ollama":    { slug: "ollama",              bg: "#1a2e1f", color: "#FFFFFF" },
+  "docker":    { slug: "docker",              bg: "#0d1f3c", color: "#2496ED" },
+  "vscode":    { slug: "visualstudiocode",    bg: "#1a2030", color: "#007ACC" },
+  "tailscale": { slug: "tailscale",           bg: "#15202b", color: "#242424" },
+};
+
+// Fallback custom icons for apps not in Simple Icons
+const APP_ICONS_FALLBACK = {
+  "open-webui": { bg: "#1a2430,#0f1e2d", sym: "⊙",  color: "#4a90d9" },
+  "lm-studio":  { bg: "#1e1a2e,#150f23", sym: "◈",  color: "#9b59b6" },
+  "jan":        { bg: "#1e1a2e,#150f23", sym: "Jn", color: "#a78bfa" },
+  "gpt4all":    { bg: "#1a2e1f,#0f2318", sym: "G4", color: "#30d158" },
+  "localai":    { bg: "#1e2a1a,#122010", sym: "AI", color: "#56d668" },
+  "rustdesk":   { bg: "#2b1515,#1f0d0d", sym: "Rd", color: "#ef4444" },
+  "zerotier":   { bg: "#15202b,#0d1820", sym: "ZT", color: "#3b82f6" },
+  "iterm2":     { bg: "#1e1e1e,#141414", sym: ">_", color: "#a0a0a0" },
 };
 
 function appIconHTML(id) {
-  const def = APP_ICONS[id] || ["#1e1e1e,#141414", "?", "#888"];
-  const [grad, sym, color] = def;
-  const style = `background:linear-gradient(135deg,${grad});`;
-  const tStyle = color ? `color:${color};` : "color:#fff;";
-  const isEmoji = /\p{Emoji}/u.test(sym);
+  const si = APP_SIMPLE_ICONS[id];
+  if (si) {
+    const url = `https://cdn.simpleicons.org/${si.slug}/${si.color.replace("#","")}`;
+    return `<div class="app-card-icon" style="background:${si.bg};padding:10px;">` +
+      `<img src="${url}" alt="${id}" style="width:28px;height:28px;display:block;" ` +
+      `onerror="this.parentElement.innerHTML='<span style=\\'font-size:13px;font-weight:700;color:${si.color};font-family:var(--mono)\\'>${id.slice(0,2).toUpperCase()}</span>'" />` +
+      `</div>`;
+  }
+  const fb = APP_ICONS_FALLBACK[id] || { bg: "#1e1e1e,#141414", sym: "?", color: "#888" };
+  const grad = fb.bg.includes(",") ? `linear-gradient(135deg,${fb.bg})` : fb.bg;
+  const isEmoji = /\p{Emoji}/u.test(fb.sym);
   const inner = isEmoji
-    ? `<span style="font-size:20px;line-height:1">${sym}</span>`
-    : `<span style="font-size:14px;font-weight:700;${tStyle}font-family:var(--mono)">${sym}</span>`;
-  return `<div class="app-card-icon" style="${style}">${inner}</div>`;
+    ? `<span style="font-size:20px;line-height:1">${fb.sym}</span>`
+    : `<span style="font-size:14px;font-weight:700;color:${fb.color};font-family:var(--mono)">${fb.sym}</span>`;
+  return `<div class="app-card-icon" style="background:${grad};">${inner}</div>`;
 }
 
 function appCatLabel(cat) {
