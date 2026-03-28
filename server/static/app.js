@@ -545,6 +545,9 @@ let infAbortCtrl   = null; // AbortController for active stream
 let infMsgId       = 0;    // monotonic ID per assistant message
 let infCurrent     = {};   // state for the streaming assistant message
 let infRAFPending  = false; // requestAnimationFrame render queued
+let infConvID      = null; // active persisted conversation ID
+let infMsgPos      = 0;    // message position counter for persistence
+let infLastUser    = "";   // last user text (for auto-save)
 
 function initInference() {
   fetch("/api/ollama")
@@ -564,6 +567,8 @@ function initInference() {
       document.getElementById("inf-model-select").innerHTML = '<option value="">Ollama offline</option>';
       infUpdateChip();
     });
+  infLoadHistory();
+  infUpdateRAGStatus();
 }
 
 function infUpdateChip() {
@@ -595,6 +600,16 @@ async function sendInference() {
   ta.value = "";
   infAutoResize(ta);
 
+  // Store for auto-save
+  infLastUser = text;
+
+  // RAG context injection (best-effort, non-blocking)
+  let systemPrompt = infGetSystem();
+  if (document.getElementById("inf-rag-toggle")?.checked) {
+    const ragCtx = await infRAGSearch(text);
+    if (ragCtx) systemPrompt = ragCtx + (systemPrompt ? "\n\n" + systemPrompt : "");
+  }
+
   // Add to history and render user bubble
   infMessages.push({ role: "user", content: text });
   infRenderUser(text);
@@ -616,7 +631,7 @@ async function sendInference() {
         model:    sel.value,
         messages: infMessages,
         options:  infGetOptions(),
-        system:   infGetSystem(),
+        system:   systemPrompt,
       }),
       signal: infAbortCtrl.signal,
     });
@@ -647,6 +662,9 @@ async function sendInference() {
     infAbortCtrl = null;
     infSetStop(false);
     infFinishMsg(id);
+    // Persist conversation (best-effort, async)
+    const model = sel.value || "";
+    infAutoSave(infLastUser, infCurrent.responseText || "", model);
   }
 }
 
@@ -823,6 +841,7 @@ function infScrollChat() {
 function clearInference() {
   if (infAbortCtrl) infAbortCtrl.abort();
   infMessages = []; infMsgId = 0; infCurrent = {};
+  infConvID = null; infMsgPos = 0; infLastUser = "";
   const chat = document.getElementById("inf-chat");
   if (!chat) return;
   chat.querySelectorAll(".inf-msg").forEach(el => el.remove());
@@ -832,6 +851,135 @@ function clearInference() {
 
 function infEscape(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Conversation history ──────────────────────────────────────────────────────
+
+function infClientID() {
+  return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+async function infLoadHistory() {
+  try {
+    const list = await fetch("/api/conversations").then(r => r.json());
+    const el = document.getElementById("inf-history-list");
+    if (!el) return;
+    el.innerHTML = "";
+    for (const conv of list) {
+      const item = document.createElement("div");
+      item.className = "inf-hist-item" + (conv.id === infConvID ? " active" : "");
+      item.dataset.id = conv.id;
+      item.innerHTML = `
+        <div class="inf-hist-item-title">${infEscape(conv.title)}</div>
+        <div class="inf-hist-item-meta">${conv.msg_count} msgs</div>
+        <button class="inf-hist-del" title="Deletar" onclick="infDeleteConv('${conv.id}',event)">×</button>`;
+      item.addEventListener("click", () => infLoadConv(conv.id));
+      el.appendChild(item);
+    }
+  } catch(_) {}
+}
+
+async function infLoadConv(id) {
+  try {
+    const data = await fetch(`/api/conversations/${id}`).then(r => r.json());
+    clearInference();
+    infConvID = id;
+    infMsgPos = (data.messages || []).length;
+
+    const chat  = document.getElementById("inf-chat");
+    const empty = document.getElementById("inf-empty");
+    if (empty) empty.style.display = "none";
+
+    for (const msg of (data.messages || [])) {
+      if (msg.role === "user") {
+        infMessages.push({ role: "user", content: msg.content });
+        infRenderUser(msg.content);
+      } else if (msg.role === "assistant") {
+        infMessages.push({ role: "assistant", content: msg.content });
+        const aid = ++infMsgId;
+        const model = data.model || "";
+        const el = document.createElement("div");
+        el.className = "inf-msg inf-msg-assistant";
+        el.id = `inf-msg-${aid}`;
+        el.innerHTML = `
+          <div class="inf-avatar-col">
+            <div class="inf-avatar-icon">${familyIcon(infModelFamily(model))}</div>
+            <span class="inf-avatar-model-label">${infModelShort(model)}</span>
+          </div>
+          <div class="inf-msg-body">
+            <div class="inf-response" id="inf-re-${aid}">${infMarkdown(msg.content)}</div>
+          </div>`;
+        chat.appendChild(el);
+      }
+    }
+    infScrollChat();
+    // Highlight active item
+    document.querySelectorAll(".inf-hist-item").forEach(el => {
+      el.classList.toggle("active", el.dataset.id === id);
+    });
+  } catch(_) {}
+}
+
+function infNewConversation() {
+  clearInference();
+  infLoadHistory();
+}
+
+async function infDeleteConv(id, e) {
+  e.stopPropagation();
+  await fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch(() => {});
+  if (id === infConvID) clearInference();
+  infLoadHistory();
+}
+
+async function infAutoSave(userText, assistantText, model) {
+  if (!userText) return;
+  try {
+    if (!infConvID) {
+      const title = userText.length > 60 ? userText.slice(0, 60) + "…" : userText;
+      const conv = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, model }),
+      }).then(r => r.json());
+      infConvID = conv.id;
+      infMsgPos = 0;
+    }
+    const cid = infConvID;
+    await fetch(`/api/conversations/${cid}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: infClientID(), role: "user", content: userText, position: infMsgPos++ }),
+    });
+    if (assistantText) {
+      await fetch(`/api/conversations/${cid}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: infClientID(), role: "assistant", content: assistantText, position: infMsgPos++ }),
+      });
+    }
+    infLoadHistory();
+    infUpdateRAGStatus();
+  } catch(_) {}
+}
+
+async function infRAGSearch(text) {
+  try {
+    const r = await fetch("/api/rag/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: text, limit: 5 }),
+    }).then(r => r.json());
+    return r.context || "";
+  } catch(_) { return ""; }
+}
+
+async function infUpdateRAGStatus() {
+  try {
+    const s = await fetch("/api/rag/status").then(r => r.json());
+    const el = document.getElementById("inf-rag-status");
+    if (el) el.textContent = s.total_embeddings > 0 ? `${s.total_embeddings} vetores` : "";
+  } catch(_) {}
 }
 
 // ── Params panel ─────────────────────────────────────────────────────────────

@@ -380,7 +380,7 @@ func collectStats(rt *rateTracker, bindIP string) Stats {
 
 // ── Portal server ─────────────────────────────────────────────────────────────
 
-func startPortal(ctx context.Context, bindIP string, port int, store *Storage) {
+func startPortal(ctx context.Context, bindIP string, port int, store *Storage, convStore *ConvStore, embedQueue *EmbedQueue) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("PANIC no portal: %v", r)
@@ -457,6 +457,166 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage) {
 			period = "24h"
 		}
 		json.NewEncoder(w).Encode(store.QueryHistory(period))
+	})
+
+	// ── Conversations ─────────────────────────────────────────────────────────
+
+	mux.HandleFunc("GET /api/conversations", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if convStore == nil {
+			json.NewEncoder(w).Encode([]Conversation{})
+			return
+		}
+		list, _ := convStore.ListConversations()
+		json.NewEncoder(w).Encode(list)
+	})
+
+	mux.HandleFunc("POST /api/conversations", func(w http.ResponseWriter, r *http.Request) {
+		if convStore == nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		var req struct {
+			Title string `json:"title"`
+			Model string `json:"model"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Title == "" {
+			req.Title = "Nova conversa"
+		}
+		conv, err := convStore.CreateConversation(req.Title, req.Model)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(conv)
+	})
+
+	mux.HandleFunc("GET /api/conversations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if convStore == nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+		conv, err := convStore.GetConversation(id)
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		messages, _ := convStore.GetMessages(id)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"conversation": conv,
+			"messages":     messages,
+			"model":        conv.Model,
+		})
+	})
+
+	mux.HandleFunc("DELETE /api/conversations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if convStore == nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		convStore.DeleteConversation(r.PathValue("id"))
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	mux.HandleFunc("PATCH /api/conversations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if convStore == nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		var req struct {
+			Title string `json:"title"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Title != "" {
+			convStore.UpdateTitle(r.PathValue("id"), req.Title)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	mux.HandleFunc("POST /api/conversations/{id}/messages", func(w http.ResponseWriter, r *http.Request) {
+		if convStore == nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		convID := r.PathValue("id")
+		var req struct {
+			ID       string `json:"id"`
+			Role     string `json:"role"`
+			Content  string `json:"content"`
+			Position int    `json:"position"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.ID == "" {
+			req.ID = newID()
+		}
+		if err := convStore.SaveMessage(convID, req.ID, req.Role, req.Content, req.Position); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Queue embedding for assistant messages (best-effort)
+		if embedQueue != nil && req.Role == "assistant" && req.Content != "" {
+			embedQueue.Submit(convID, req.ID, req.Content)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"id": req.ID})
+	})
+
+	// ── RAG ───────────────────────────────────────────────────────────────────
+
+	mux.HandleFunc("POST /api/rag/search", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if convStore == nil || embedQueue == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"results": []RAGResult{}, "context": "",
+			})
+			return
+		}
+		var req struct {
+			Query string `json:"query"`
+			Limit int    `json:"limit"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Limit <= 0 {
+			req.Limit = 5
+		}
+		vec, err := embedQueue.fetchEmbedding(req.Query)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"results": []RAGResult{}, "context": "", "error": err.Error(),
+			})
+			return
+		}
+		results, err := SearchRAG(convStore, vec, req.Limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": results,
+			"context": FormatRAGContext(results),
+		})
+	})
+
+	mux.HandleFunc("GET /api/rag/status", func(w http.ResponseWriter, r *http.Request) {
+		model := "nomic-embed-text"
+		var total, qlen int
+		if convStore != nil {
+			total = convStore.CountEmbeddings()
+		}
+		if embedQueue != nil {
+			qlen = embedQueue.Len()
+			model = embedQueue.model
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"model":            model,
+			"queue_len":        qlen,
+			"total_embeddings": total,
+		})
 	})
 
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

@@ -44,6 +44,19 @@ func main() {
 	}
 	defer store.Close()
 
+	var convStore *ConvStore
+	if store != nil {
+		convStore, err = NewConvStore(store.db)
+		if err != nil {
+			log.Printf("Warning: could not init conv store: %v", err)
+		}
+	}
+
+	var embedQueue *EmbedQueue
+	if convStore != nil {
+		embedQueue = NewEmbedQueue(convStore, "http://localhost:11434", "nomic-embed-text")
+	}
+
 	log.Printf("M4Server %s (%s) started", Version, BuildHash)
 	fmt.Printf("\n╔══════════════════════════════════════╗\n")
 	fmt.Printf("║         M4Server — Online            ║\n")
@@ -64,7 +77,7 @@ func main() {
 					log.Printf("PANIC recuperado em sessão: %v", r)
 				}
 			}()
-			handleSession(cfg, iface, store)
+			handleSession(cfg, iface, store, convStore, embedQueue)
 		}()
 
 		log.Println("Sessão encerrada. Aguardando próxima conexão...")
@@ -72,7 +85,7 @@ func main() {
 	}
 }
 
-func handleSession(cfg Config, iface string, store *Storage) {
+func handleSession(cfg Config, iface string, store *Storage, convStore *ConvStore, embedQueue *EmbedQueue) {
 	subnet := findFreeSubnet(cfg.PreferredSubnet)
 	macIP := fmt.Sprintf("%s.%s", subnet, cfg.MacSuffix)
 
@@ -127,7 +140,7 @@ func handleSession(cfg Config, iface string, store *Storage) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // desliga o portal quando o cabo for removido
 
-	go startPortal(ctx, macIP, cfg.PortalPort, store)
+	go startPortal(ctx, macIP, cfg.PortalPort, store, convStore, embedQueue)
 
 	log.Printf("Portal iniciado em http://%s:%d", macIP, cfg.PortalPort)
 	log.Println("Aguardando desconexão do cabo...")

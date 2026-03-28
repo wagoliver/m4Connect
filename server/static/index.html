@@ -463,6 +463,19 @@
 
       <!-- Inference -->
       <div class="page" id="page-inference">
+        <div class="inf-layout">
+
+        <!-- History sidebar -->
+        <div class="inf-history-panel" id="inf-history-panel">
+          <div class="inf-history-header">
+            <span class="inf-history-title">Histórico</span>
+            <button class="btn-sm" onclick="infNewConversation()">+ Nova</button>
+          </div>
+          <div class="inf-history-list" id="inf-history-list">
+            <!-- items injected by JS -->
+          </div>
+        </div>
+
         <div class="inf-wrap">
 
           <!-- Header -->
@@ -580,6 +593,14 @@
 
           <!-- Input -->
           <div class="inf-input-wrap">
+            <!-- RAG toggle -->
+            <div class="inf-rag-row">
+              <label class="inf-rag-label">
+                <input type="checkbox" id="inf-rag-toggle" class="inf-rag-check"/>
+                <span>Contexto semântico</span>
+              </label>
+              <span class="inf-rag-status" id="inf-rag-status"></span>
+            </div>
             <div class="inf-input-row">
               <textarea
                 class="inf-textarea"
@@ -604,7 +625,8 @@
             </div>
           </div>
 
-        </div>
+        </div><!-- /inf-wrap -->
+        </div><!-- /inf-layout -->
       </div>
 
       <!-- Benchmark -->
