@@ -391,7 +391,7 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage, c
 
 	h := newHub()
 	rt := newRateTracker()
-	startTempPoller()
+	startPowerPoller()
 
 	go initSlowInfo()
 
