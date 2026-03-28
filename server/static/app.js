@@ -526,4 +526,6 @@ window.addEventListener("load", () => {
     .then(r => r.json())
     .then(updateServiceUI)
     .catch(() => {});
+
+  loadHistory("1h");
 });
