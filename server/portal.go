@@ -437,6 +437,10 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage) {
 
 	mux.HandleFunc("/api/inference", handleInference)
 
+	mux.HandleFunc("/api/speedtest/ping", handleSpeedtestPing)
+	mux.HandleFunc("/api/speedtest/download", handleSpeedtestDownload)
+	mux.HandleFunc("/api/speedtest/upload", handleSpeedtestUpload)
+
 	mux.HandleFunc("/api/ollama", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(CheckOllama())

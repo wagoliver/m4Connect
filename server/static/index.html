@@ -82,6 +82,14 @@
           </svg>
           Working On LLm
         </a>
+        <a class="nav-item" data-page="benchmark">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12.5 A5.5 5.5 0 1 1 12 12.5"/>
+            <path d="M7 7.5 L10.5 4"/>
+            <circle cx="7" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+          Benchmark
+        </a>
       </nav>
 
       <div style="flex:1"></div>
@@ -593,6 +601,109 @@
             <div class="inf-input-footer">
               <span class="inf-footer-chip" id="inf-footer-chip">–</span>
               <span class="inf-hint">Enter ↵ envia · Shift+Enter nova linha</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Benchmark -->
+      <div class="page" id="page-benchmark">
+        <div class="bench-wrap">
+
+          <!-- Header -->
+          <div class="bench-header">
+            <div class="bench-header-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12.5 A5.5 5.5 0 1 1 12 12.5"/>
+                <path d="M7 7.5 L10.5 4"/>
+                <circle cx="7" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <span class="bench-header-title">Benchmark de Rede</span>
+            <span class="bench-header-sub">Cat8 P2P · 10.10.10.x</span>
+          </div>
+
+          <!-- Gauge -->
+          <div class="bench-gauge-wrap">
+            <svg class="bench-gauge-svg" viewBox="0 0 200 112" xmlns="http://www.w3.org/2000/svg">
+              <!-- Tick marks -->
+              <path class="bench-gauge-ticks" d="M10,107 A90,90 0 0,1 190,107" stroke="none"/>
+              <!-- Track -->
+              <path class="bench-gauge-track" d="M10,107 A90,90 0 0,1 190,107"/>
+              <!-- Fill -->
+              <path class="bench-gauge-fill" id="bench-fill" d="M10,107 A90,90 0 0,1 190,107"/>
+            </svg>
+            <!-- Speed labels on gauge edges -->
+            <span class="bench-gauge-label-lo">0</span>
+            <span class="bench-gauge-label-hi">1000</span>
+            <!-- Center overlay -->
+            <div class="bench-gauge-center">
+              <div class="bench-speed-val" id="bench-speed-val">0</div>
+              <div class="bench-speed-unit" id="bench-speed-unit">Mbps</div>
+              <div class="bench-speed-phase" id="bench-speed-phase">Pronto para testar</div>
+            </div>
+          </div>
+
+          <!-- Phase indicators -->
+          <div class="bench-phases">
+            <div class="bench-phase-item" id="bph-ping">
+              <span class="bench-phase-dot"></span>
+              <span>Ping</span>
+            </div>
+            <div class="bench-phase-sep"></div>
+            <div class="bench-phase-item" id="bph-download">
+              <span class="bench-phase-dot"></span>
+              <span>Download</span>
+            </div>
+            <div class="bench-phase-sep"></div>
+            <div class="bench-phase-item" id="bph-upload">
+              <span class="bench-phase-dot"></span>
+              <span>Upload</span>
+            </div>
+          </div>
+
+          <!-- Start button -->
+          <div class="bench-start-wrap">
+            <button class="bench-start-btn" id="bench-start-btn" onclick="runBenchmark()">
+              Iniciar Teste
+            </button>
+          </div>
+
+          <!-- Results -->
+          <div class="bench-results">
+            <div class="bench-result-card" id="bench-card-ping">
+              <div class="bench-result-icon" style="color:var(--yellow)">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="10" cy="10" r="7.5"/>
+                  <path d="M10 6v4l2.5 1.5"/>
+                </svg>
+              </div>
+              <div class="bench-result-label">Ping</div>
+              <div class="bench-result-val" id="bench-res-ping">–</div>
+              <div class="bench-result-unit">ms</div>
+            </div>
+            <div class="bench-result-card" id="bench-card-dl">
+              <div class="bench-result-icon" style="color:var(--green)">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 3v10M5 9l5 5 5-5"/>
+                  <path d="M4 16h12"/>
+                </svg>
+              </div>
+              <div class="bench-result-label">Download</div>
+              <div class="bench-result-val" id="bench-res-dl">–</div>
+              <div class="bench-result-unit">Mbps</div>
+            </div>
+            <div class="bench-result-card" id="bench-card-ul">
+              <div class="bench-result-icon" style="color:var(--blue)">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 17V7M5 11l5-5 5 5"/>
+                  <path d="M4 4h12"/>
+                </svg>
+              </div>
+              <div class="bench-result-label">Upload</div>
+              <div class="bench-result-val" id="bench-res-ul">–</div>
+              <div class="bench-result-unit">Mbps</div>
             </div>
           </div>
 

@@ -983,6 +983,178 @@ function infMarkdown(raw) {
   return out;
 }
 
+// ── Benchmark page ────────────────────────────────────────────────────────────
+
+const BENCH_DASH    = 283;   // π × 90 — arc path length for r=90 semicircle
+const BENCH_MAX     = 1000;  // 1 Gbps ceiling on the gauge
+
+let benchRunning = false;
+
+function benchSetGauge(mbps, phase) {
+  const fraction = Math.min(mbps / BENCH_MAX, 1);
+  const fill = document.getElementById("bench-fill");
+  if (fill) {
+    fill.style.strokeDashoffset = BENCH_DASH * (1 - fraction);
+    fill.className = "bench-gauge-fill" + (phase ? " phase-" + phase : "");
+  }
+  const valEl   = document.getElementById("bench-speed-val");
+  const unitEl  = document.getElementById("bench-speed-unit");
+  const phaseEl = document.getElementById("bench-speed-phase");
+  if (valEl)   valEl.textContent   = mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1);
+  if (unitEl)  unitEl.textContent  = "Mbps";
+  if (phaseEl) phaseEl.textContent = phase === "download" ? "↓ Download" : "↑ Upload";
+}
+
+function benchSetPingDisplay(ms) {
+  const valEl   = document.getElementById("bench-speed-val");
+  const unitEl  = document.getElementById("bench-speed-unit");
+  const phaseEl = document.getElementById("bench-speed-phase");
+  if (valEl)   valEl.textContent   = ms.toFixed(1);
+  if (unitEl)  unitEl.textContent  = "ms";
+  if (phaseEl) phaseEl.textContent = "Ping RTT";
+  const fill = document.getElementById("bench-fill");
+  if (fill) {
+    fill.style.strokeDashoffset = BENCH_DASH;
+    fill.className = "bench-gauge-fill phase-ping";
+  }
+}
+
+function benchSetPhase(phase) {
+  ["ping","download","upload"].forEach(p => {
+    const el = document.getElementById(`bph-${p}`);
+    if (!el) return;
+    el.className = "bench-phase-item" + (p === phase ? " active" : "");
+  });
+}
+
+function benchMarkDone(phase) {
+  const el = document.getElementById(`bph-${phase}`);
+  if (el) el.className = "bench-phase-item done";
+}
+
+async function benchTestPing() {
+  benchSetPhase("ping");
+  document.getElementById("bench-speed-phase").textContent = "Ping";
+  const N = 10;
+  const rtts = [];
+  for (let i = 0; i < N; i++) {
+    const t0 = performance.now();
+    await fetch("/api/speedtest/ping", { cache: "no-store" });
+    const rtt = performance.now() - t0;
+    rtts.push(rtt);
+    benchSetPingDisplay(rtt);
+    await new Promise(r => setTimeout(r, 40));
+  }
+  rtts.sort((a, b) => a - b);
+  const median = rtts[Math.floor(N / 2)];
+  benchSetPingDisplay(median);
+  benchMarkDone("ping");
+  return median;
+}
+
+async function benchTestDownload() {
+  benchSetPhase("download");
+  const SIZE = 100 * 1024 * 1024; // 100 MB
+  const start = performance.now();
+  let received = 0;
+
+  const resp = await fetch(`/api/speedtest/download?size=${SIZE}`, { cache: "no-store" });
+  const reader = resp.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    const elapsed = (performance.now() - start) / 1000;
+    if (elapsed > 0.05) benchSetGauge((received * 8) / (elapsed * 1e6), "download");
+  }
+
+  const elapsed = (performance.now() - start) / 1000;
+  const mbps = elapsed > 0 ? (received * 8) / (elapsed * 1e6) : 0;
+  benchMarkDone("download");
+  return mbps;
+}
+
+async function benchTestUpload() {
+  benchSetPhase("upload");
+  const SIZE = 50 * 1024 * 1024; // 50 MB
+  return new Promise((resolve) => {
+    const data = new Blob([new ArrayBuffer(SIZE)]);
+    const xhr  = new XMLHttpRequest();
+    const start = performance.now();
+
+    xhr.upload.onprogress = (e) => {
+      const elapsed = (performance.now() - start) / 1000;
+      if (elapsed > 0.1 && e.loaded > 0) {
+        benchSetGauge((e.loaded * 8) / (elapsed * 1e6), "upload");
+      }
+    };
+
+    xhr.onload = () => {
+      const elapsed = (performance.now() - start) / 1000;
+      benchMarkDone("upload");
+      resolve(elapsed > 0 ? (SIZE * 8) / (elapsed * 1e6) : 0);
+    };
+
+    xhr.onerror = () => { benchMarkDone("upload"); resolve(0); };
+    xhr.open("POST", "/api/speedtest/upload");
+    xhr.send(data);
+  });
+}
+
+async function runBenchmark() {
+  if (benchRunning) return;
+  benchRunning = true;
+
+  const btn = document.getElementById("bench-start-btn");
+  btn.disabled = true;
+  btn.textContent = "Testando…";
+
+  // Reset UI
+  ["ping","download","upload"].forEach(p => {
+    const ph = document.getElementById(`bph-${p}`);
+    if (ph) ph.className = "bench-phase-item";
+    const card = document.getElementById(`bench-card-${p === "ping" ? "ping" : p === "download" ? "dl" : "ul"}`);
+    if (card) card.classList.remove("done");
+  });
+  document.getElementById("bench-res-ping").textContent = "–";
+  document.getElementById("bench-res-dl").textContent   = "–";
+  document.getElementById("bench-res-ul").textContent   = "–";
+  const fill = document.getElementById("bench-fill");
+  if (fill) { fill.style.strokeDashoffset = BENCH_DASH; fill.className = "bench-gauge-fill"; }
+  document.getElementById("bench-speed-val").textContent   = "0";
+  document.getElementById("bench-speed-unit").textContent  = "Mbps";
+  document.getElementById("bench-speed-phase").textContent = "Iniciando…";
+
+  try {
+    const pingMs = await benchTestPing();
+    document.getElementById("bench-res-ping").textContent = pingMs.toFixed(2);
+    document.getElementById("bench-card-ping").classList.add("done");
+
+    await new Promise(r => setTimeout(r, 300));
+
+    const dlMbps = await benchTestDownload();
+    document.getElementById("bench-res-dl").textContent = dlMbps >= 100 ? dlMbps.toFixed(0) : dlMbps.toFixed(1);
+    document.getElementById("bench-card-dl").classList.add("done");
+
+    await new Promise(r => setTimeout(r, 300));
+
+    const ulMbps = await benchTestUpload();
+    document.getElementById("bench-res-ul").textContent = ulMbps >= 100 ? ulMbps.toFixed(0) : ulMbps.toFixed(1);
+    document.getElementById("bench-card-ul").classList.add("done");
+
+    // Show download result on gauge
+    benchSetGauge(dlMbps, "download");
+    document.getElementById("bench-speed-phase").textContent = "Concluído";
+  } catch (err) {
+    document.getElementById("bench-speed-phase").textContent = "Erro";
+    addLog("Benchmark: " + (err.message || err), "error");
+  }
+
+  benchRunning = false;
+  btn.disabled = false;
+  btn.textContent = "Repetir Teste";
+}
+
 // ── LLM page ──────────────────────────────────────────────────────────────────
 
 let llmTimer = null;
