@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>M4 Connect — Setup</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="app setup-app">
+    <div class="setup-icon">
+      <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+        <rect width="52" height="52" rx="14" fill="#1d1d1f"/>
+        <rect x="10" y="19" width="32" height="19" rx="5" fill="#3a3a3c"/>
+        <rect x="18" y="38" width="16" height="3" fill="#3a3a3c"/>
+        <rect x="14" y="41" width="24" height="2.5" rx="1.25" fill="#3a3a3c"/>
+        <circle cx="26" cy="28.5" r="3.5" fill="#636366"/>
+      </svg>
+    </div>
+    <div class="setup-title">Bem-vindo ao M4 Connect</div>
+    <div class="setup-desc">
+      Cole o token exibido durante a instalação do M4Server.pkg no Mac Mini.
+    </div>
+    <div class="field">
+      <label>Token do servidor</label>
+      <input type="text" id="setup-token" placeholder="Ex: a3f8c21d4e..." autofocus/>
+      <div class="field-hint">Exibido no terminal ao instalar M4Server.pkg</div>
+    </div>
+    <div class="field">
+      <label>Subnet <span class="optional">(padrão: 10.10.10)</span></label>
+      <input type="text" id="setup-subnet" value="10.10.10"/>
+    </div>
+    <button class="btn-primary btn-full" onclick="completeSetup()">Salvar e conectar</button>
+  </div>
+  <script>
+    async function completeSetup() {
+      const token = document.getElementById("setup-token").value.trim();
+      const default_subnet = document.getElementById("setup-subnet").value.trim() || "10.10.10";
+      if (!token) {
+        document.getElementById("setup-token").classList.add("error");
+        return;
+      }
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, default_subnet, client_suffix: "2", handshake_port: 54321 }),
+      });
+      location.href = "/";
+    }
+  </script>
+</body>
+</html>

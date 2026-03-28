@@ -1,0 +1,26 @@
+# Compiled binaries
+*.exe
+*.pkg
+*.syso
+*.7z
+*.mp4
+
+# Go build artifacts
+client/m4server
+server/m4server
+
+# Runtime config (gerado automaticamente, nunca comitar tokens)
+**/config.json
+**/.m4connect/
+**/Application Support/M4Server/
+
+# Debugging artifacts
+bug/
+
+# macOS
+.DS_Store
+*.plist.bak
+server/pkg/*.bak
+
+# Claude Code local settings (paths pessoais)
+.claude/

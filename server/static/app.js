@@ -1,0 +1,529 @@
+"use strict";
+
+// ── History page state ────────────────────────────────────────────────────────
+let currentPeriod = "1h";
+let historyData   = null;
+
+// ── Sparkline history (live dashboard) ───────────────────────────────────────
+const HIST = 60;
+const cpuHist   = new Array(HIST).fill(0);
+const netRxHist = new Array(HIST).fill(0);
+const netTxHist = new Array(HIST).fill(0);
+
+// ── Uptime ────────────────────────────────────────────────────────────────────
+let uptimeSecs  = 0;
+let uptimeTimer = null;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+document.querySelectorAll(".nav-item").forEach(item => {
+  item.addEventListener("click", e => {
+    e.preventDefault();
+    const page = item.dataset.page;
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    item.classList.add("active");
+    document.getElementById(`page-${page}`).classList.add("active");
+    if (page === "dashboard") redrawCharts();
+    if (page === "history")   setTimeout(() => loadHistory(currentPeriod), 30);
+  });
+});
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function fmtBytes(bps) {
+  if (!bps || bps < 0)         return "0 B/s";
+  if (bps < 1024)              return bps.toFixed(0) + " B/s";
+  if (bps < 1024 * 1024)      return (bps / 1024).toFixed(1) + " KB/s";
+  if (bps < 1024 * 1024 * 1024) return (bps / (1024 * 1024)).toFixed(2) + " MB/s";
+  return (bps / (1024 * 1024 * 1024)).toFixed(2) + " GB/s";
+}
+
+function fmtGBshort(n) {
+  if (n == null || isNaN(n)) return "–";
+  return n.toFixed(1);
+}
+
+function fmtUptime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+
+// ── Canvas helpers ────────────────────────────────────────────────────────────
+// Reads size from the parent (chart-outer) to avoid layout feedback loops
+function canvasSize(canvas) {
+  const p = canvas.parentElement;
+  return { W: p.clientWidth || 1, H: p.clientHeight || 1 };
+}
+
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const { W, H } = canvasSize(canvas);
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { ctx, W, H };
+}
+
+// ── Donut (SVG) ───────────────────────────────────────────────────────────────
+const DONUT_C = 2 * Math.PI * 46; // circumference for r=46 ≈ 289.03
+
+function setDonut(arcId, pct) {
+  const arc = document.getElementById(arcId);
+  if (!arc) return;
+  const offset = DONUT_C * (1 - Math.min(Math.max(pct, 0), 100) / 100);
+  arc.style.strokeDashoffset = offset;
+}
+
+// ── Sparkline ─────────────────────────────────────────────────────────────────
+function drawSparkline(canvas, data, color, fillColor) {
+  if (!canvas || !canvas.parentElement) return;
+  const { ctx, W, H } = setupCanvas(canvas);
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxVal = Math.max(...data, 1);
+  const pad = 2;
+  const step = (W - pad * 2) / (data.length - 1);
+
+  // Grid
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75].forEach(f => {
+    const y = H - pad - f * (H - pad * 2);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, fillColor || "rgba(48,209,88,0.2)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+
+  const pts = data.map((v, i) => ({
+    x: pad + i * step,
+    y: H - pad - (v / maxVal) * (H - pad * 2)
+  }));
+
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.lineTo(pts[0].x, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color || "#30d158";
+  ctx.lineWidth   = 1.5;
+  ctx.lineJoin    = "round";
+  ctx.stroke();
+}
+
+// ── Dual sparkline (network) ───────────────────────────────────────────────────
+function drawDualSparkline(canvas, dataA, dataB, colorA, colorB, fillA, fillB) {
+  if (!canvas || !canvas.parentElement) return;
+  const { ctx, W, H } = setupCanvas(canvas);
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxVal = Math.max(...dataA, ...dataB, 1);
+  const pad = 2;
+  const step = (W - pad * 2) / (dataA.length - 1);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth = 1;
+  [0.33, 0.66].forEach(f => {
+    const y = H - pad - f * (H - pad * 2);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+
+  const drawSeries = (data, color, fill) => {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, fill);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    const pts = data.map((v, i) => ({
+      x: pad + i * step,
+      y: H - pad - (v / maxVal) * (H - pad * 2)
+    }));
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length-1].x, H);
+    ctx.lineTo(pts[0].x, H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin  = "round";
+    ctx.stroke();
+  };
+
+  drawSeries(dataB, colorB, fillB || "rgba(74,144,217,0.15)");
+  drawSeries(dataA, colorA, fillA || "rgba(48,209,88,0.18)");
+}
+
+// ── Uptime bars ───────────────────────────────────────────────────────────────
+function drawUptimeBars(canvas) {
+  if (!canvas || !canvas.parentElement) return;
+  const { ctx, W, H } = setupCanvas(canvas);
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const bars = 30, gap = 2;
+  const barW = Math.max(1, (W - gap * (bars - 1)) / bars);
+  for (let i = 0; i < bars; i++) {
+    const x    = i * (barW + gap);
+    const hPct = 0.15 + Math.random() * 0.65;
+    const h    = hPct * H;
+    ctx.fillStyle = `rgba(48,209,88,${(0.1 + hPct * 0.4).toFixed(2)})`;
+    ctx.fillRect(x, H - h, barW, h);
+  }
+}
+
+// ── Redraw all charts ─────────────────────────────────────────────────────────
+function redrawCharts() {
+  requestAnimationFrame(() => {
+    drawSparkline(document.getElementById("cpu-chart"), cpuHist, "#30d158");
+    drawDualSparkline(document.getElementById("net-chart"), netRxHist, netTxHist, "#30d158", "#4a90d9");
+    drawUptimeBars(document.getElementById("uptime-bars"));
+    if (historyData) renderHistory(historyData);
+  });
+}
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el && val != null) el.textContent = val;
+}
+function setWidth(id, pct) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.min(100, Math.max(0, pct)).toFixed(1) + "%";
+}
+
+// ── Update from WebSocket data ────────────────────────────────────────────────
+function updateStats(data) {
+  const cpu  = data.cpu_percent ?? 0;
+  const idle = data.cpu_idle    ?? (100 - cpu);
+
+  // CPU
+  cpuHist.push(cpu); cpuHist.shift();
+  setText("cpu-val",      cpu.toFixed(0) + "%");
+  setText("cpu-idle",     idle.toFixed(0));
+  setText("cpu-badge",    cpu.toFixed(0) + "%");
+  setText("cpu-temp",     data.temperature != null ? data.temperature.toFixed(0) + "°C" : "–°C");
+  setText("la1",          data.load_avg_1 != null ? data.load_avg_1.toFixed(2) : "–");
+  setText("la5",          data.load_avg_5 != null ? data.load_avg_5.toFixed(2) : "–");
+  setText("stat-procs",   data.process_count ?? "–");
+  setText("stat-threads", data.thread_count  ?? "–");
+  setText("d-temp-badge", data.temperature != null ? data.temperature.toFixed(0) + "°C" : "–°C");
+  setDonut("cpu-arc", cpu);
+  drawSparkline(document.getElementById("cpu-chart"), cpuHist, "#30d158");
+
+  // Memory
+  const ramUsed  = data.ram_used_gb  ?? 0;
+  const ramTotal = data.ram_total_gb ?? 0;
+  const ramPct   = data.ram_percent  ?? 0;
+  setText("mem-val",    fmtGBshort(ramUsed) + " GB");
+  setText("mem-used",   fmtGBshort(ramUsed));
+  setText("mem-total",  fmtGBshort(ramTotal));
+  setText("mem-badge",  fmtGBshort(ramUsed) + " / " + fmtGBshort(ramTotal) + " GB");
+  setText("app-mem",    data.app_mem_gb    != null ? fmtGBshort(data.app_mem_gb)    + " GB" : "–");
+  setText("wired-mem",  data.wired_mem_gb  != null ? fmtGBshort(data.wired_mem_gb)  + " GB" : "–");
+  setText("comp-mem",   data.comp_mem_gb   != null ? fmtGBshort(data.comp_mem_gb)   + " GB" : "–");
+  setText("cached-mem", data.cached_mem_gb != null ? fmtGBshort(data.cached_mem_gb) + " GB" : "–");
+
+  const swapUsed  = data.swap_used_gb  ?? 0;
+  const swapTotal = data.swap_total_gb ?? 1;
+  setText("swap-used",  fmtGBshort(swapUsed)  + " GB");
+  setText("swap-total", fmtGBshort(swapTotal) + " GB");
+  setWidth("swap-fill", swapTotal > 0 ? (swapUsed / swapTotal) * 100 : 0);
+
+  const pressure = ramPct > 85 ? "Critical" : ramPct > 70 ? "High" : ramPct > 50 ? "Medium" : "Low";
+  setText("mem-pressure", pressure);
+  setDonut("mem-arc", ramPct);
+
+  // Network
+  const rx = data.net_rx_bps ?? 0;
+  const tx = data.net_tx_bps ?? 0;
+  netRxHist.push(rx); netRxHist.shift();
+  netTxHist.push(tx); netTxHist.shift();
+  setText("net-rx", fmtBytes(rx));
+  setText("net-tx", fmtBytes(tx));
+  drawDualSparkline(document.getElementById("net-chart"), netRxHist, netTxHist, "#30d158", "#4a90d9");
+
+  // Disk
+  const diskUsed  = data.disk_used_gb  ?? 0;
+  const diskTotal = data.disk_total_gb ?? 1;
+  const diskFree  = diskTotal - diskUsed;
+  const diskPct   = diskTotal > 0 ? (diskUsed / diskTotal) * 100 : 0;
+  setText("disk-val",         Math.round(diskUsed)  + " GB");
+  setText("disk-total-label", Math.round(diskTotal) + " GB");
+  setText("disk-free",        Math.round(diskFree).toString());
+  setText("disk-read",        fmtBytes(data.disk_read_bps  ?? 0));
+  setText("disk-write",       fmtBytes(data.disk_write_bps ?? 0));
+  setWidth("disk-bar-used", diskPct);
+  setDonut("disk-arc", diskPct);
+
+  // System Info
+  if (data.os_version)    setText("si-os",      data.os_version);
+  if (data.chip_info)     setText("si-chip",    data.chip_info);
+  if (data.disk_total_gb) setText("si-storage", Math.round(data.disk_total_gb) + " GB SSD");
+
+  // Uptime
+  if (data.uptime_secs != null) {
+    uptimeSecs = data.uptime_secs;
+    if (!uptimeTimer) {
+      uptimeTimer = setInterval(() => {
+        uptimeSecs++;
+        setText("uptime-clock", fmtUptime(uptimeSecs));
+      }, 1000);
+    }
+    setText("uptime-clock", fmtUptime(uptimeSecs));
+  }
+  if (data.hostname) {
+    setText("uptime-hostname", data.hostname);
+    setText("sb-hostname", data.hostname);
+  }
+  if (data.chip_info) setText("sb-chip", data.chip_info);
+
+  // Sidebar IP
+  if (data.mac_ip) setText("d-ip", data.mac_ip);
+
+  // Services
+  if (data.services) updateServiceUI(data.services);
+}
+
+// ── Services ──────────────────────────────────────────────────────────────────
+function updateServiceUI(svc) {
+  ["vnc", "ssh"].forEach(name => {
+    const on  = svc[name] === true;
+    const chk = document.getElementById(`svc-${name}`);
+    if (chk) chk.checked = on;
+  });
+}
+
+async function toggleService(name, state) {
+  const action = state ? "on" : "off";
+  try {
+    await fetch(`/api/services/${name}/${action}`, { method: "POST" });
+    addLog(`${name.toUpperCase()} ${state ? "ativado" : "desativado"}`, state ? "ok" : "warn");
+  } catch(e) {
+    addLog(`Erro ao toggling ${name}: ${e.message}`, "error");
+  }
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+const logOutput = document.getElementById("log-output");
+
+function addLog(text, type = "info") {
+  if (!logOutput) return;
+  const line = document.createElement("div");
+  const ts   = new Date().toLocaleTimeString("pt-BR");
+  line.className  = `log-line log-${type}`;
+  line.textContent = `[${ts}] ${text}`;
+  logOutput.appendChild(line);
+  logOutput.scrollTop = logOutput.scrollHeight;
+}
+
+function clearLogs() {
+  if (logOutput) logOutput.innerHTML = "";
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = e => { try { updateStats(JSON.parse(e.data)); } catch(_) {} };
+  ws.onclose   = ()  => { setTimeout(connectWS, 3000); };
+  ws.onerror   = ()  => { addLog("WebSocket erro", "error"); };
+}
+
+// ── History charts ────────────────────────────────────────────────────────────
+
+function fmtHistTime(ts, period) {
+  const d = new Date(ts * 1000);
+  if (period === "7d") {
+    return d.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric" });
+  }
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function drawHistoryChart(canvas, points, getValue, color, fillColor) {
+  if (!canvas || !canvas.parentElement) return;
+  const { ctx, W, H } = setupCanvas(canvas);
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+  if (!points || points.length < 2) return;
+
+  const values = points.map(p => getValue(p));
+  const maxVal = Math.max(...values, 1);
+  const pad    = 2;
+  const step   = (W - pad * 2) / (points.length - 1);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth   = 1;
+  [0.25, 0.5, 0.75].forEach(f => {
+    const y = H - pad - f * (H - pad * 2);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, fillColor || "rgba(48,209,88,0.2)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+
+  const pts = values.map((v, i) => ({
+    x: pad + i * step,
+    y: H - pad - (v / maxVal) * (H - pad * 2)
+  }));
+
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length - 1].x, H); ctx.lineTo(pts[0].x, H);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color || "#30d158";
+  ctx.lineWidth   = 1.5;
+  ctx.lineJoin    = "round";
+  ctx.stroke();
+}
+
+function drawHistoryNetChart(canvas, points) {
+  if (!canvas || !canvas.parentElement) return;
+  const { ctx, W, H } = setupCanvas(canvas);
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+  if (!points || points.length < 2) return;
+
+  const rxVals = points.map(p => p.rx);
+  const txVals = points.map(p => p.tx);
+  const maxVal = Math.max(...rxVals, ...txVals, 1);
+  const pad    = 2;
+  const step   = (W - pad * 2) / (points.length - 1);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth   = 1;
+  [0.33, 0.66].forEach(f => {
+    const y = H - pad - f * (H - pad * 2);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+
+  const drawLine = (vals, color, fill) => {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, fill); grad.addColorStop(1, "rgba(0,0,0,0)");
+    const pts = vals.map((v, i) => ({
+      x: pad + i * step,
+      y: H - pad - (v / maxVal) * (H - pad * 2)
+    }));
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, H); ctx.lineTo(pts[0].x, H);
+    ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = "round"; ctx.stroke();
+  };
+
+  drawLine(txVals, "#4a90d9", "rgba(74,144,217,0.15)");
+  drawLine(rxVals, "#30d158", "rgba(48,209,88,0.18)");
+}
+
+function setHistAxis(id, points, period) {
+  const el = document.getElementById(id);
+  if (!el || !points || points.length < 2) return;
+  const spans = el.querySelectorAll("span");
+  if (spans.length >= 2) {
+    spans[0].textContent = fmtHistTime(points[0].t, period);
+    spans[1].textContent = fmtHistTime(points[points.length - 1].t, period);
+  }
+}
+
+function renderHistory(data) {
+  historyData = data;
+  const pts    = data.points || [];
+  const period = data.period;
+  const avg    = (arr, fn) => arr.length ? (arr.reduce((s, p) => s + fn(p), 0) / arr.length) : null;
+
+  // CPU
+  const cpuAvg = avg(pts, p => p.cpu);
+  setText("hist-cpu-badge", cpuAvg !== null ? `avg ${cpuAvg.toFixed(0)}%` : "sem dados");
+  drawHistoryChart(
+    document.getElementById("hist-cpu-chart"),
+    pts, p => p.cpu, "#30d158", "rgba(48,209,88,0.18)"
+  );
+  setHistAxis("hist-cpu-axis", pts, period);
+
+  // RAM
+  const ramAvg = avg(pts, p => p.ram);
+  setText("hist-ram-badge", ramAvg !== null ? `avg ${ramAvg.toFixed(0)}%` : "sem dados");
+  drawHistoryChart(
+    document.getElementById("hist-ram-chart"),
+    pts, p => p.ram, "#4a90d9", "rgba(74,144,217,0.18)"
+  );
+  setHistAxis("hist-ram-axis", pts, period);
+
+  // Temperature (filter zeroes — no data points)
+  const tempPts = pts.filter(p => p.temp > 0);
+  const tempAvg = avg(tempPts, p => p.temp);
+  setText("hist-temp-badge", tempAvg !== null ? `avg ${tempAvg.toFixed(0)}°C` : "sem dados");
+  drawHistoryChart(
+    document.getElementById("hist-temp-chart"),
+    tempPts, p => p.temp, "#e67e22", "rgba(230,126,34,0.18)"
+  );
+  setHistAxis("hist-temp-axis", pts, period);
+
+  // Network
+  const maxRx = pts.length ? Math.max(...pts.map(p => p.rx)) : 0;
+  setText("hist-net-badge", pts.length ? `↓ max ${fmtBytes(maxRx)}` : "sem dados");
+  drawHistoryNetChart(document.getElementById("hist-net-chart"), pts);
+  setHistAxis("hist-net-axis", pts, period);
+}
+
+async function loadHistory(period) {
+  currentPeriod = period;
+  try {
+    const res  = await fetch(`/api/history?period=${period}`);
+    const data = await res.json();
+    renderHistory(data);
+  } catch(e) {
+    addLog(`Histórico: erro ao carregar (${e.message})`, "error");
+  }
+}
+
+document.querySelectorAll(".hist-period-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".hist-period-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    loadHistory(btn.dataset.period);
+  });
+});
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(redrawCharts, 100);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    drawUptimeBars(document.getElementById("uptime-bars"));
+  });
+
+  connectWS();
+
+  fetch("/api/status")
+    .then(r => r.json())
+    .then(updateStats)
+    .catch(() => {});
+
+  fetch("/api/services")
+    .then(r => r.json())
+    .then(updateServiceUI)
+    .catch(() => {});
+});

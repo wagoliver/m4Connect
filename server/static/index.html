@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mac Mini M4 — Portal</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+
+      <!-- Online status -->
+      <div class="sb-status">
+        <span class="sb-dot-pulse"></span>
+        <span class="sb-status-text">Online</span>
+      </div>
+
+      <!-- Device photo -->
+      <div class="sb-photo">
+        <img src="/static/img/macmini.png" alt="Mac Mini M4" draggable="false"/>
+      </div>
+
+      <!-- Identity -->
+      <div class="sb-identity">
+        <div class="sb-name" id="sb-hostname">Mac Mini M4</div>
+        <div class="sb-ip mono" id="d-ip">–</div>
+        <div class="sb-meta">
+          <span id="d-temp-badge">–°C</span>
+          <span class="sb-sep">·</span>
+          <span id="sb-chip">M4</span>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="sb-divider"></div>
+
+      <!-- Nav -->
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-page="dashboard">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <rect x="0" y="0" width="6" height="6" rx="1.5"/>
+            <rect x="8" y="0" width="6" height="6" rx="1.5"/>
+            <rect x="0" y="8" width="6" height="6" rx="1.5"/>
+            <rect x="8" y="8" width="6" height="6" rx="1.5"/>
+          </svg>
+          Dashboard
+        </a>
+        <a class="nav-item" data-page="services">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7" cy="7" r="2.2"/>
+            <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.6 2.6l1.1 1.1M10.3 10.3l1.1 1.1M2.6 11.4l1.1-1.1M10.3 3.7l1.1-1.1"/>
+          </svg>
+          Serviços
+        </a>
+        <a class="nav-item" data-page="logs">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <rect x="0" y="1" width="14" height="2" rx="1"/>
+            <rect x="0" y="6" width="14" height="2" rx="1"/>
+            <rect x="0" y="11" width="9" height="2" rx="1"/>
+          </svg>
+          Logs
+        </a>
+        <a class="nav-item" data-page="history">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7" cy="7" r="5.5"/>
+            <path d="M7 4v3l2 1.5"/>
+          </svg>
+          Histórico
+        </a>
+      </nav>
+
+      <!-- Footer -->
+      <div style="flex:1"></div>
+      <div class="sb-divider"></div>
+      <div class="sb-footer">M4 Portal</div>
+
+    </aside>
+
+    <!-- ── PAGES ── -->
+    <div class="pages">
+
+      <!-- Dashboard -->
+      <div class="page active" id="page-dashboard">
+        <div class="grid">
+
+          <!-- CPU -->
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">CPU Usage</span>
+              <span class="card-hint" id="cpu-badge">–%</span>
+            </div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <svg class="donut-svg" viewBox="0 0 110 110">
+                  <circle class="donut-track" cx="55" cy="55" r="46"/>
+                  <circle class="donut-arc" id="cpu-arc" cx="55" cy="55" r="46"/>
+                </svg>
+                <div class="donut-inner">
+                  <span class="donut-val" id="cpu-val">–%</span>
+                  <span class="donut-sub">Idle: <span id="cpu-idle">–</span>%</span>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <div class="chart-outer">
+                  <canvas id="cpu-chart"></canvas>
+                </div>
+                <div class="chart-axis"><span>0</span><span>60s</span></div>
+              </div>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-key">Core #1</span>
+                <span class="stat-val mono" id="cpu-temp">–°C</span>
+                <span class="stat-key ml">Load Avg</span>
+                <span class="stat-val mono"><span id="la1">–</span> <span id="la5">–</span></span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-key">Processes</span>
+                <span class="stat-val mono" id="stat-procs">–</span>
+                <span class="stat-key ml">Threads</span>
+                <span class="stat-val mono" id="stat-threads">–</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Memory -->
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Memory Usage</span>
+              <span class="card-hint" id="mem-badge">–</span>
+            </div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <svg class="donut-svg" viewBox="0 0 110 110">
+                  <circle class="donut-track" cx="55" cy="55" r="46"/>
+                  <circle class="donut-arc" id="mem-arc" cx="55" cy="55" r="46"/>
+                </svg>
+                <div class="donut-inner">
+                  <span class="donut-val donut-val--lg" id="mem-val">–</span>
+                  <span class="donut-sub"><span id="mem-used">–</span> / <span id="mem-total">–</span> GB</span>
+                </div>
+              </div>
+              <div class="mem-legend">
+                <div class="mem-row"><span class="mem-dot" style="background:#4a90d9"></span><span class="mem-key">App Memory</span><span class="mem-gb mono" id="app-mem">–</span></div>
+                <div class="mem-row"><span class="mem-dot" style="background:#e67e22"></span><span class="mem-key">Wired</span><span class="mem-gb mono" id="wired-mem">–</span></div>
+                <div class="mem-row"><span class="mem-dot" style="background:#f5d657"></span><span class="mem-key">Compressed</span><span class="mem-gb mono" id="comp-mem">–</span></div>
+                <div class="mem-row"><span class="mem-dot" style="background:#2ecc71"></span><span class="mem-key">Cached Files</span><span class="mem-gb mono" id="cached-mem">–</span></div>
+              </div>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row swap-row">
+                <span class="stat-key">Swap</span>
+                <span class="stat-val mono" id="swap-used">–</span>
+                <div class="swap-track"><div class="swap-fill" id="swap-fill"></div></div>
+                <span class="stat-val mono grey" id="swap-total">–</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-key">Pressure</span>
+                <span class="stat-val" id="mem-pressure">–</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network -->
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Network Activity</span>
+            </div>
+            <div class="net-body">
+              <div class="net-rates">
+                <div class="net-rate-block">
+                  <span class="net-rate-val green" id="net-rx">–</span>
+                  <span class="net-rate-label">Download</span>
+                </div>
+                <div class="net-rate-block">
+                  <span class="net-rate-val dim" id="net-tx">–</span>
+                  <span class="net-rate-label">Upload</span>
+                </div>
+              </div>
+              <div class="chart-wrap net-chart-wrap">
+                <div class="chart-outer">
+                  <canvas id="net-chart"></canvas>
+                </div>
+                <div class="chart-axis"><span>0</span><span>60s</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Disk -->
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Disk Usage</span>
+            </div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <svg class="donut-svg" viewBox="0 0 110 110">
+                  <circle class="donut-track" cx="55" cy="55" r="46"/>
+                  <circle class="donut-arc" id="disk-arc" cx="55" cy="55" r="46"/>
+                </svg>
+                <div class="donut-inner">
+                  <span class="donut-val donut-val--sm" id="disk-val">–</span>
+                  <span class="donut-sub" id="disk-total-label">– GB</span>
+                </div>
+              </div>
+              <div class="disk-right">
+                <div class="disk-bar-track">
+                  <div class="disk-bar-used" id="disk-bar-used"></div>
+                </div>
+                <div class="disk-io-row">
+                  <span class="stat-key">Read</span>
+                  <span class="stat-val mono" id="disk-read">–</span>
+                  <span class="stat-key ml">Write</span>
+                  <span class="stat-val mono" id="disk-write">–</span>
+                </div>
+                <div class="disk-free-label">Free: <span class="mono" id="disk-free">–</span> GB</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Info -->
+          <div class="card card-sm">
+            <div class="card-head">
+              <span class="card-title">System Info</span>
+            </div>
+            <div class="sysinfo-list">
+              <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="si-os">–</span></div>
+              <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="si-chip">–</span></div>
+              <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="si-storage">–</span></div>
+            </div>
+          </div>
+
+          <!-- Uptime -->
+          <div class="card card-sm">
+            <div class="card-head">
+              <span class="card-title">Uptime</span>
+            </div>
+            <div class="uptime-clock mono" id="uptime-clock">–:––:––</div>
+            <div class="uptime-sub" id="uptime-hostname">Mac Mini M4</div>
+            <div class="chart-outer uptime-bars-outer">
+              <canvas id="uptime-bars"></canvas>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Services -->
+      <div class="page" id="page-services">
+        <div class="services-grid">
+          <div class="svc-card">
+            <div class="svc-icon vnc-icon">VNC</div>
+            <div class="svc-info">
+              <div class="svc-name">Screen Sharing</div>
+              <div class="svc-desc">Acesso remoto via VNC · porta 5900</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="svc-vnc" onchange="toggleService('vnc', this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="svc-card">
+            <div class="svc-icon ssh-icon">SSH</div>
+            <div class="svc-info">
+              <div class="svc-name">SSH</div>
+              <div class="svc-desc">Shell remoto seguro · porta 22</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="svc-ssh" onchange="toggleService('ssh', this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="page" id="page-history">
+        <div class="hist-page">
+          <div class="hist-period-row">
+            <button class="hist-period-btn active" data-period="1h">1h</button>
+            <button class="hist-period-btn" data-period="6h">6h</button>
+            <button class="hist-period-btn" data-period="24h">24h</button>
+            <button class="hist-period-btn" data-period="7d">7d</button>
+          </div>
+          <div class="hist-grid">
+            <!-- CPU -->
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">CPU Usage</span>
+                <span class="card-hint" id="hist-cpu-badge">–</span>
+              </div>
+              <div class="hist-chart-outer"><canvas id="hist-cpu-chart"></canvas></div>
+              <div class="hist-axis" id="hist-cpu-axis"><span></span><span></span></div>
+            </div>
+            <!-- Memory -->
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">Memory Usage</span>
+                <span class="card-hint" id="hist-ram-badge">–</span>
+              </div>
+              <div class="hist-chart-outer"><canvas id="hist-ram-chart"></canvas></div>
+              <div class="hist-axis" id="hist-ram-axis"><span></span><span></span></div>
+            </div>
+            <!-- Temperature -->
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">Temperature</span>
+                <span class="card-hint" id="hist-temp-badge">–</span>
+              </div>
+              <div class="hist-chart-outer"><canvas id="hist-temp-chart"></canvas></div>
+              <div class="hist-axis" id="hist-temp-axis"><span></span><span></span></div>
+            </div>
+            <!-- Network -->
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">Network I/O</span>
+                <span class="card-hint" id="hist-net-badge">–</span>
+              </div>
+              <div class="hist-chart-outer"><canvas id="hist-net-chart"></canvas></div>
+              <div class="hist-axis" id="hist-net-axis"><span></span><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div class="page" id="page-logs">
+        <div class="log-wrap">
+          <div class="log-header">
+            <span class="card-title">Logs em tempo real</span>
+            <button class="btn-sm" onclick="clearLogs()">Limpar</button>
+          </div>
+          <div class="log-terminal" id="log-output">
+            <div class="log-line log-info">Portal iniciado.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

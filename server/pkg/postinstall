@@ -1,0 +1,39 @@
+#!/bin/bash
+# Post-install para M4Server.pkg (binário Go)
+set -e
+
+BIN_SRC="/usr/local/m4server/m4server"
+BIN_DST="/usr/local/bin/m4server"
+PLIST_SRC="/usr/local/m4server/pkg/com.m4server.daemon.plist"
+PLIST_DST="/Library/LaunchDaemons/com.m4server.daemon.plist"
+LOG_DIR="/Library/Logs/M4Server"
+
+echo "==> M4Server: instalando..."
+mkdir -p "$LOG_DIR"
+
+# Instala o binário
+chmod +x "$BIN_SRC"
+cp "$BIN_SRC" "$BIN_DST"
+
+# Gera config + token na primeira instalação
+mkdir -p "/Library/Application Support/M4Server"
+if [ ! -f "/Library/Application Support/M4Server/config.json" ]; then
+  # O daemon gera o token automaticamente ao primeiro start
+  echo "==> Primeira instalação — token será gerado ao iniciar."
+fi
+
+# Registra no launchd
+cp "$PLIST_SRC" "$PLIST_DST"
+chown root:wheel "$PLIST_DST"
+chmod 644 "$PLIST_DST"
+
+launchctl unload "$PLIST_DST" 2>/dev/null || true
+launchctl load -w "$PLIST_DST"
+
+echo ""
+echo "╔══════════════════════════════════════════════╗"
+echo "║  M4Server instalado com sucesso!             ║"
+echo "║  Token em: /Library/Application Support/     ║"
+echo "║            M4Server/config.json              ║"
+echo "║  Logs em:  /Library/Logs/M4Server/           ║"
+echo "╚══════════════════════════════════════════════╝"

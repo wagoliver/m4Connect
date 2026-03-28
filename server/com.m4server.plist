@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.m4server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/wagneroliveira/m4server/m4server</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/wagneroliveira/m4server</string>
+
+    <!-- Inicia automaticamente no boot -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Reinicia automaticamente se o processo morrer -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Aguarda 5s antes de reiniciar após crash -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Library/Logs/M4Server/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Library/Logs/M4Server/stderr.log</string>
+</dict>
+</plist>
