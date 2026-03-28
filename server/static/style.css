@@ -558,25 +558,25 @@ html,body{
 
 /* Think block */
 .inf-think-block{
-  background:rgba(245,214,87,.04);
-  border:1px solid rgba(245,214,87,.13);
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.07);
   border-radius:8px;overflow:hidden;
 }
 .inf-think-header{
   display:flex;align-items:center;gap:7px;padding:7px 11px;
   cursor:pointer;user-select:none;font-size:11px;
-  color:rgba(245,214,87,.65);
+  color:rgba(255,255,255,.3);
 }
 .inf-think-spinner{
   width:8px;height:8px;border-radius:50%;flex-shrink:0;
-  border:1.5px solid rgba(245,214,87,.25);border-top-color:rgba(245,214,87,.75);
+  border:1.5px solid rgba(255,255,255,.12);border-top-color:rgba(255,255,255,.45);
   animation:spin .7s linear infinite;
 }
-.inf-think-spinner.done{animation:none;border:none;background:rgba(245,214,87,.35)}
-.inf-think-toggle{margin-left:auto;font-size:10px;transition:transform .2s;opacity:.6}
+.inf-think-spinner.done{animation:none;border:none;background:rgba(255,255,255,.15)}
+.inf-think-toggle{margin-left:auto;font-size:10px;transition:transform .2s;opacity:.4}
 .inf-think-block.collapsed .inf-think-toggle{transform:rotate(-90deg)}
 .inf-think-content{
-  padding:0 11px 9px;font-size:11px;color:rgba(245,214,87,.45);
+  padding:0 11px 9px;font-size:11px;color:rgba(255,255,255,.2);
   font-style:italic;line-height:1.6;white-space:pre-wrap;word-break:break-word;
 }
 .inf-think-block.collapsed .inf-think-content{display:none}
@@ -592,7 +592,7 @@ html,body{
 }
 .inf-response[data-thinking]::before{
   content:'Processando pensamento…';
-  display:block;font-size:11px;color:rgba(245,214,87,.45);
+  display:block;font-size:11px;color:rgba(255,255,255,.22);
   font-style:italic;margin-bottom:4px;
 }
 .inf-response pre{
