@@ -24,9 +24,10 @@ document.querySelectorAll(".nav-item").forEach(item => {
     item.classList.add("active");
     document.getElementById(`page-${page}`).classList.add("active");
     if (page !== "llm") stopLLMPolling();
-    if (page === "dashboard") redrawCharts();
-    if (page === "history")   setTimeout(() => loadHistory(currentPeriod), 30);
-    if (page === "llm")       startLLMPolling();
+    if (page === "dashboard")  redrawCharts();
+    if (page === "history")    setTimeout(() => loadHistory(currentPeriod), 30);
+    if (page === "llm")        startLLMPolling();
+    if (page === "inference")  initInference();
   });
 });
 
@@ -536,6 +537,305 @@ window.addEventListener("load", () => {
     .then(v => setText("sb-version", `v${v.version} · ${v.build}`))
     .catch(() => {});
 });
+
+// ── Inference page ────────────────────────────────────────────────────────────
+
+let infMessages    = [];   // conversation history [{role, content}]
+let infAbortCtrl   = null; // AbortController for active stream
+let infMsgId       = 0;    // monotonic ID per assistant message
+let infCurrent     = {};   // state for the streaming assistant message
+
+function initInference() {
+  fetch("/api/ollama")
+    .then(r => r.json())
+    .then(d => {
+      const sel = document.getElementById("inf-model-select");
+      const models = d.models || [];
+      sel.innerHTML = models.length === 0
+        ? '<option value="">Nenhum modelo instalado</option>'
+        : models.map(m => `<option value="${m.name}">${m.name}</option>`).join("");
+      // pre-select a running model if any
+      const running = d.running_models || [];
+      if (running.length > 0) sel.value = running[0].name;
+      infUpdateChip();
+    })
+    .catch(() => {
+      document.getElementById("inf-model-select").innerHTML = '<option value="">Ollama offline</option>';
+      infUpdateChip();
+    });
+}
+
+function infUpdateChip() {
+  const sel = document.getElementById("inf-model-select");
+  document.getElementById("inf-footer-chip").textContent = sel && sel.value ? sel.value : "–";
+}
+
+function infKeydown(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendInference(); }
+}
+
+function infAutoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
+async function sendInference() {
+  // Stop active stream
+  if (infAbortCtrl) { infAbortCtrl.abort(); return; }
+
+  const ta  = document.getElementById("inf-textarea");
+  const sel = document.getElementById("inf-model-select");
+  const text = ta.value.trim();
+  if (!text || !sel.value) return;
+
+  // Hide empty state, reset textarea
+  const emptyEl = document.getElementById("inf-empty");
+  if (emptyEl) emptyEl.style.display = "none";
+  ta.value = "";
+  infAutoResize(ta);
+
+  // Add to history and render user bubble
+  infMessages.push({ role: "user", content: text });
+  infRenderUser(text);
+
+  // Prepare assistant container
+  const id = ++infMsgId;
+  infCurrent = { id, thinkText: "", responseText: "", thinkDone: false };
+  infRenderAssistant(id);
+  infScrollChat();
+
+  infSetStop(true);
+  infAbortCtrl = new AbortController();
+
+  try {
+    const resp = await fetch("/api/inference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: sel.value, messages: infMessages }),
+      signal: infAbortCtrl.signal,
+    });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuf = "", curEvent = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      sseBuf += decoder.decode(value, { stream: true });
+      const lines = sseBuf.split("\n");
+      sseBuf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          curEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          try { infHandleSSE(curEvent, JSON.parse(line.slice(6)), id); } catch (_) {}
+          curEvent = "";
+        }
+      }
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") infRenderError(id, "Erro ao conectar com Ollama.");
+  } finally {
+    infAbortCtrl = null;
+    infSetStop(false);
+    infFinishMsg(id);
+  }
+}
+
+function infHandleSSE(event, data, id) {
+  switch (event) {
+    case "think_start":
+      infShowThink(id, true);
+      break;
+    case "think":
+      infCurrent.thinkText += data.token || "";
+      const tc = document.getElementById(`inf-tc-${id}`);
+      if (tc) tc.textContent = infCurrent.thinkText;
+      infScrollChat();
+      break;
+    case "think_end":
+      infCurrent.thinkDone = true;
+      infMarkThinkDone(id);
+      break;
+    case "token":
+      infCurrent.responseText += data.token || "";
+      const re = document.getElementById(`inf-re-${id}`);
+      if (re) re.textContent = infCurrent.responseText;
+      infScrollChat();
+      break;
+    case "stats":
+      infRenderStats(id, data);
+      infMessages.push({ role: "assistant", content: infCurrent.responseText });
+      break;
+    case "done":
+      // finalize markdown rendering
+      const rel = document.getElementById(`inf-re-${id}`);
+      if (rel) {
+        rel.classList.remove("streaming");
+        rel.innerHTML = infMarkdown(infCurrent.responseText);
+      }
+      break;
+    case "error":
+      infRenderError(id, data.msg || "Erro desconhecido.");
+      break;
+  }
+}
+
+function infRenderUser(text) {
+  const chat = document.getElementById("inf-chat");
+  const el = document.createElement("div");
+  el.className = "inf-msg inf-msg-user";
+  el.innerHTML = `<div class="inf-msg-content">${infEscape(text)}</div>
+    <div class="inf-avatar inf-avatar-user">W</div>`;
+  chat.appendChild(el);
+}
+
+function infRenderAssistant(id) {
+  const chat = document.getElementById("inf-chat");
+  const el = document.createElement("div");
+  el.className = "inf-msg inf-msg-assistant";
+  el.id = `inf-msg-${id}`;
+  el.innerHTML = `
+    <div class="inf-avatar inf-avatar-m4">M4</div>
+    <div class="inf-msg-body">
+      <div class="inf-think-block" id="inf-tb-${id}" style="display:none">
+        <div class="inf-think-header" onclick="infToggleThink(${id})">
+          <div class="inf-think-spinner" id="inf-ts-${id}"></div>
+          <span>Pensando</span>
+          <span class="inf-think-toggle">▾</span>
+        </div>
+        <div class="inf-think-content" id="inf-tc-${id}"></div>
+      </div>
+      <div class="inf-response streaming" id="inf-re-${id}"></div>
+      <div class="inf-stats-row" id="inf-sr-${id}" style="display:none"></div>
+    </div>`;
+  chat.appendChild(el);
+}
+
+function infShowThink(id, show) {
+  const el = document.getElementById(`inf-tb-${id}`);
+  if (el) el.style.display = show ? "" : "none";
+}
+
+function infMarkThinkDone(id) {
+  const spinner = document.getElementById(`inf-ts-${id}`);
+  if (spinner) spinner.classList.add("done");
+  const block = document.getElementById(`inf-tb-${id}`);
+  if (block) block.classList.add("collapsed");
+}
+
+function infRenderStats(id, d) {
+  const el = document.getElementById(`inf-sr-${id}`);
+  if (!el) return;
+  const tps  = (d.tps  || 0).toFixed(1);
+  const ptps = (d.prompt_tps || 0).toFixed(1);
+  const sec  = ((d.total_ms || 0) / 1000).toFixed(2);
+  el.style.display = "flex";
+  el.innerHTML = `
+    <span class="inf-stat-hi">⚡ <span class="inf-stat-val">${tps} t/s</span></span>
+    <span class="inf-stat-sep">·</span>
+    <span><span class="inf-stat-val">${d.eval_count || 0}</span> tokens</span>
+    <span class="inf-stat-sep">·</span>
+    <span><span class="inf-stat-val">${sec}s</span> total</span>
+    <span class="inf-stat-sep">·</span>
+    <span>prompt <span class="inf-stat-val">${ptps} t/s</span></span>
+    <span class="inf-stat-sep">·</span>
+    <span>load <span class="inf-stat-val">${d.load_ms || 0}ms</span></span>`;
+}
+
+function infRenderError(id, msg) {
+  const el = document.getElementById(`inf-re-${id}`);
+  if (el) { el.classList.remove("streaming"); el.className += " inf-error"; el.textContent = msg; }
+}
+
+function infFinishMsg(id) {
+  const el = document.getElementById(`inf-re-${id}`);
+  if (el) el.classList.remove("streaming");
+  const sp = document.getElementById(`inf-ts-${id}`);
+  if (sp) sp.classList.add("done");
+}
+
+function infToggleThink(id) {
+  const b = document.getElementById(`inf-tb-${id}`);
+  if (b) b.classList.toggle("collapsed");
+}
+
+function infSetStop(isStop) {
+  const btn  = document.getElementById("inf-send-btn");
+  const send = document.getElementById("inf-send-icon");
+  const stop = document.getElementById("inf-stop-icon");
+  btn.classList.toggle("stop", isStop);
+  if (send) send.style.display = isStop ? "none" : "";
+  if (stop) stop.style.display = isStop ? ""     : "none";
+}
+
+function infScrollChat() {
+  const c = document.getElementById("inf-chat");
+  if (c) c.scrollTop = c.scrollHeight;
+}
+
+function clearInference() {
+  if (infAbortCtrl) infAbortCtrl.abort();
+  infMessages = []; infMsgId = 0; infCurrent = {};
+  const chat = document.getElementById("inf-chat");
+  if (!chat) return;
+  chat.querySelectorAll(".inf-msg").forEach(el => el.remove());
+  const empty = document.getElementById("inf-empty");
+  if (empty) empty.style.display = "";
+}
+
+function infEscape(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Markdown renderer (streaming-safe: call on full text after done) ──────────
+function infMarkdown(raw) {
+  const lines = raw.split("\n");
+  let out = "", inCode = false, codeBuf = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (!inCode && line.startsWith("```")) {
+      inCode = true; codeBuf = []; continue;
+    }
+    if (inCode && line.trimEnd() === "```") {
+      out += `<pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>`;
+      inCode = false; continue;
+    }
+    if (inCode) { codeBuf.push(line); continue; }
+
+    let l = infEscape(line);
+    // Inline code
+    l = l.replace(/`([^`]+)`/g, "<code>$1</code>");
+    // Bold
+    l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    // Italic
+    l = l.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+    // Headers
+    if (l.startsWith("### "))      { out += `<h4>${l.slice(4)}</h4>`; continue; }
+    else if (l.startsWith("## ")) { out += `<h3>${l.slice(3)}</h3>`; continue; }
+    else if (l.startsWith("# "))  { out += `<h2>${l.slice(2)}</h2>`; continue; }
+    // Bullet
+    if (/^[-*] /.test(l)) { out += `<li>${l.slice(2)}</li>`; continue; }
+    // Numbered
+    if (/^\d+\. /.test(l)) { out += `<li>${l.replace(/^\d+\. /,"")}</li>`; continue; }
+    // Empty line
+    if (l.trim() === "") { out += "<br>"; continue; }
+
+    out += l + "<br>";
+  }
+  if (inCode) out += `<pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>`;
+
+  // Wrap consecutive <li> in <ul>
+  out = out.replace(/((?:<li>[\s\S]*?<\/li>)+)/g, "<ul>$1</ul>");
+  // Clean trailing <br> before block elements
+  out = out.replace(/<br>(<(?:h[234]|ul|pre|br))/g, "$1");
+
+  return out;
+}
 
 // ── LLM page ──────────────────────────────────────────────────────────────────
 

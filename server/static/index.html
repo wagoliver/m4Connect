@@ -76,6 +76,12 @@
           </svg>
           LLM
         </a>
+        <a class="nav-item" data-page="inference">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 7h2l2-4.5 2 9 2-7 1.5 4.5H13"/>
+          </svg>
+          Working On LLm
+        </a>
       </nav>
 
       <div style="flex:1"></div>
@@ -442,6 +448,104 @@
             <div class="llm-offline-title">Ollama não encontrado</div>
             <div class="llm-offline-sub">Inicie o Ollama no Mac Mini para monitorar os modelos.</div>
             <code class="llm-offline-cmd">ollama serve</code>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Inference -->
+      <div class="page" id="page-inference">
+        <div class="inf-wrap">
+
+          <!-- Header -->
+          <div class="inf-header">
+            <div class="inf-header-left">
+              <div class="inf-header-icon">
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 7h2l2-4.5 2 9 2-7 1.5 4.5H13"/>
+                </svg>
+              </div>
+              <span class="inf-header-title">Working On LLm</span>
+            </div>
+            <div class="inf-header-right">
+              <select class="inf-model-select" id="inf-model-select" onchange="infUpdateChip()">
+                <option value="">Carregando…</option>
+              </select>
+              <button class="btn-sm" onclick="clearInference()">Limpar</button>
+            </div>
+          </div>
+
+          <!-- Chat -->
+          <div class="inf-chat" id="inf-chat">
+            <div class="inf-empty" id="inf-empty">
+              <div class="inf-empty-art">
+                <svg viewBox="0 0 220 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Input nodes -->
+                  <circle cx="28" cy="55" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="28" cy="80" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="28" cy="105" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <!-- Hidden layer 1 -->
+                  <circle cx="80" cy="43" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="80" cy="68" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="80" cy="93" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="80" cy="118" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <!-- Hidden layer 2 -->
+                  <circle cx="132" cy="55" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="132" cy="80" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <circle cx="132" cy="105" r="7" fill="var(--card)" stroke="var(--card-border)" stroke-width="1.5"/>
+                  <!-- Output -->
+                  <circle cx="180" cy="80" r="10" fill="rgba(48,209,88,.1)" stroke="var(--green)" stroke-width="1.5"/>
+                  <!-- Connections in→h1 -->
+                  <line x1="35" y1="55" x2="73" y2="45" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="35" y1="55" x2="73" y2="68" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="35" y1="80" x2="73" y2="68" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="35" y1="80" x2="73" y2="93" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="35" y1="105" x2="73" y2="93" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="35" y1="105" x2="73" y2="118" stroke="var(--text3)" stroke-width=".9"/>
+                  <!-- Connections h1→h2 -->
+                  <line x1="87" y1="43" x2="125" y2="57" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="87" y1="68" x2="125" y2="57" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="87" y1="68" x2="125" y2="80" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="87" y1="93" x2="125" y2="80" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="87" y1="93" x2="125" y2="105" stroke="var(--text3)" stroke-width=".9"/>
+                  <line x1="87" y1="118" x2="125" y2="105" stroke="var(--text3)" stroke-width=".9"/>
+                  <!-- Connections h2→out (green) -->
+                  <line x1="139" y1="55" x2="170" y2="78" stroke="rgba(48,209,88,.35)" stroke-width="1.3"/>
+                  <line x1="139" y1="80" x2="170" y2="80" stroke="rgba(48,209,88,.35)" stroke-width="1.3"/>
+                  <line x1="139" y1="105" x2="170" y2="82" stroke="rgba(48,209,88,.35)" stroke-width="1.3"/>
+                  <!-- Lightning at output -->
+                  <path d="M183 73l-5 8h7l-5 8" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="inf-empty-title">Working On LLm</div>
+              <div class="inf-empty-sub">Selecione um modelo e faça sua primeira pergunta</div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="inf-input-wrap">
+            <div class="inf-input-row">
+              <textarea
+                class="inf-textarea"
+                id="inf-textarea"
+                placeholder="Digite sua pergunta…"
+                rows="1"
+                onkeydown="infKeydown(event)"
+                oninput="infAutoResize(this)"
+              ></textarea>
+              <button class="inf-send-btn" id="inf-send-btn" onclick="sendInference()">
+                <svg id="inf-send-icon" width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M13.5 8L2 13.5l2.5-5.5L2 2.5 13.5 8z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg id="inf-stop-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:none">
+                  <rect x="2" y="2" width="9" height="9" rx="2" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <div class="inf-input-footer">
+              <span class="inf-footer-chip" id="inf-footer-chip">–</span>
+              <span class="inf-hint">Enter ↵ envia · Shift+Enter nova linha</span>
+            </div>
           </div>
 
         </div>
