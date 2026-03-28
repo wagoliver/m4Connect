@@ -995,7 +995,7 @@ function benchSetGauge(mbps, phase) {
   const fill = document.getElementById("bench-fill");
   if (fill) {
     fill.style.strokeDashoffset = BENCH_DASH * (1 - fraction);
-    fill.className = "bench-gauge-fill" + (phase ? " phase-" + phase : "");
+    fill.setAttribute("class", "bench-gauge-fill" + (phase ? " phase-" + phase : ""));
   }
   const valEl   = document.getElementById("bench-speed-val");
   const unitEl  = document.getElementById("bench-speed-unit");
@@ -1015,7 +1015,7 @@ function benchSetPingDisplay(ms) {
   const fill = document.getElementById("bench-fill");
   if (fill) {
     fill.style.strokeDashoffset = BENCH_DASH;
-    fill.className = "bench-gauge-fill phase-ping";
+    fill.setAttribute("class", "bench-gauge-fill phase-ping");
   }
 }
 
@@ -1120,7 +1120,7 @@ async function runBenchmark() {
   document.getElementById("bench-res-dl").textContent   = "–";
   document.getElementById("bench-res-ul").textContent   = "–";
   const fill = document.getElementById("bench-fill");
-  if (fill) { fill.style.strokeDashoffset = BENCH_DASH; fill.className = "bench-gauge-fill"; }
+  if (fill) { fill.style.strokeDashoffset = BENCH_DASH; fill.setAttribute("class", "bench-gauge-fill"); }
   document.getElementById("bench-speed-val").textContent   = "0";
   document.getElementById("bench-speed-unit").textContent  = "Mbps";
   document.getElementById("bench-speed-phase").textContent = "Iniciando…";
