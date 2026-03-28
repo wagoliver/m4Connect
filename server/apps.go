@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -139,11 +138,21 @@ func findApp(id string) *AppDef {
 	return nil
 }
 
+// binaryPaths lists directories where brew-installed binaries live.
+var binaryPaths = []string{
+	"/opt/homebrew/bin",  // Apple Silicon
+	"/usr/local/bin",     // Intel
+	"/usr/bin",
+	"/bin",
+}
+
 func checkAppInstalled(app AppDef) bool {
 	if app.CheckBinary != "" {
-		out, err := exec.Command("which", app.CheckBinary).Output()
-		if err == nil && strings.TrimSpace(string(out)) != "" {
-			return true
+		// Check known paths directly — `which` fails under launchd restricted PATH.
+		for _, dir := range binaryPaths {
+			if _, err := os.Stat(dir + "/" + app.CheckBinary); err == nil {
+				return true
+			}
 		}
 	}
 	if app.CheckBundle != "" {
