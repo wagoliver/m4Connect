@@ -13,8 +13,10 @@ import (
 var inferenceClient = &http.Client{Timeout: 10 * time.Minute}
 
 type InferenceRequest struct {
-	Model    string         `json:"model"`
-	Messages []OllamaChatMsg `json:"messages"`
+	Model    string                 `json:"model"`
+	Messages []OllamaChatMsg        `json:"messages"`
+	System   string                 `json:"system,omitempty"`
+	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
 type OllamaChatMsg struct {
@@ -58,11 +60,20 @@ func handleInference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]interface{}{
+	msgs := req.Messages
+	if req.System != "" {
+		msgs = append([]OllamaChatMsg{{Role: "system", Content: req.System}}, msgs...)
+	}
+
+	ollamaPayload := map[string]interface{}{
 		"model":    req.Model,
-		"messages": req.Messages,
+		"messages": msgs,
 		"stream":   true,
-	})
+	}
+	if len(req.Options) > 0 {
+		ollamaPayload["options"] = req.Options
+	}
+	payload, _ := json.Marshal(ollamaPayload)
 
 	resp, err := inferenceClient.Post(ollamaBase+"/api/chat", "application/json", bytes.NewReader(payload))
 	if err != nil {

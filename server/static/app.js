@@ -544,6 +544,7 @@ let infMessages    = [];   // conversation history [{role, content}]
 let infAbortCtrl   = null; // AbortController for active stream
 let infMsgId       = 0;    // monotonic ID per assistant message
 let infCurrent     = {};   // state for the streaming assistant message
+let infRAFPending  = false; // requestAnimationFrame render queued
 
 function initInference() {
   fetch("/api/ollama")
@@ -611,7 +612,12 @@ async function sendInference() {
     const resp = await fetch("/api/inference", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: sel.value, messages: infMessages }),
+      body: JSON.stringify({
+        model:    sel.value,
+        messages: infMessages,
+        options:  infGetOptions(),
+        system:   infGetSystem(),
+      }),
       signal: infAbortCtrl.signal,
     });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
@@ -675,9 +681,7 @@ function infHandleSSE(event, data, id) {
 
     case "token": {
       infCurrent.responseText += data.token || "";
-      const re = document.getElementById(`inf-re-${id}`);
-      if (re) re.textContent = infCurrent.responseText;
-      infScrollChat();
+      infScheduleRender();
       break;
     }
 
@@ -828,6 +832,73 @@ function clearInference() {
 
 function infEscape(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Params panel ─────────────────────────────────────────────────────────────
+
+function infToggleParams() {
+  const panel = document.getElementById("inf-params-panel");
+  const btn   = document.getElementById("inf-gear-btn");
+  const open  = panel.classList.toggle("open");
+  btn.classList.toggle("active", open);
+}
+
+function infParamVal(sliderId, valId) {
+  const v = document.getElementById(sliderId)?.value;
+  const el = document.getElementById(valId);
+  if (el && v != null) el.textContent = v;
+}
+
+function infGetOptions() {
+  const temp   = parseFloat(document.getElementById("inf-temp")?.value   ?? "0.8");
+  const topp   = parseFloat(document.getElementById("inf-topp")?.value   ?? "0.9");
+  const ctx    = parseInt(document.getElementById("inf-ctx")?.value       ?? "4096");
+  const maxtok = parseInt(document.getElementById("inf-maxtok")?.value    ?? "-1");
+  const opts = { temperature: temp, top_p: topp, num_ctx: ctx };
+  if (maxtok > 0) opts.num_predict = maxtok;
+  return opts;
+}
+
+function infGetSystem() {
+  return document.getElementById("inf-system")?.value?.trim() || "";
+}
+
+// ── Progressive rendering (requestAnimationFrame batched) ─────────────────────
+
+function infScheduleRender() {
+  if (infRAFPending) return;
+  infRAFPending = true;
+  requestAnimationFrame(() => {
+    infRAFPending = false;
+    const re = document.getElementById(`inf-re-${infCurrent.id}`);
+    if (re) {
+      re.innerHTML = infMarkdownStream(infCurrent.responseText);
+      infScrollChat();
+    }
+  });
+}
+
+// Renders complete lines as markdown; current partial line as plain text.
+// Holds back unclosed code blocks to avoid janky half-rendered fences.
+function infMarkdownStream(raw) {
+  if (!raw) return "";
+  const lastNl = raw.lastIndexOf("\n");
+  if (lastNl <= 0) return '<span style="white-space:pre-wrap">' + infEscape(raw) + "</span>";
+
+  const complete = raw.slice(0, lastNl);
+  const partial  = raw.slice(lastNl + 1);
+
+  // Count ``` fences in the complete portion
+  const fences = (complete.match(/^```/gm) || []).length;
+  if (fences % 2 !== 0) {
+    // Inside an unclosed code block — show as plain text until block closes
+    return '<span style="white-space:pre-wrap">' + infEscape(raw) + "</span>";
+  }
+
+  const rendered = infMarkdown(complete);
+  return rendered + (partial
+    ? '<span style="white-space:pre-wrap">' + infEscape(partial) + "</span>"
+    : "");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
