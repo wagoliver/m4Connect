@@ -601,7 +601,7 @@ async function sendInference() {
   // Prepare assistant container
   const id = ++infMsgId;
   infCurrent = { id, thinkText: "", responseText: "", thinkDone: false };
-  infRenderAssistant(id);
+  infRenderAssistant(id, sel.value);
   infScrollChat();
 
   infSetStop(true);
@@ -692,6 +692,8 @@ function infHandleSSE(event, data, id) {
         rel.classList.remove("streaming");
         rel.innerHTML = infMarkdown(infCurrent.responseText);
       }
+      const tsEl = document.getElementById(`inf-ts-time-${id}`);
+      if (tsEl) tsEl.textContent = infNow();
       break;
     }
 
@@ -705,18 +707,32 @@ function infRenderUser(text) {
   const chat = document.getElementById("inf-chat");
   const el = document.createElement("div");
   el.className = "inf-msg inf-msg-user";
-  el.innerHTML = `<div class="inf-msg-content">${infEscape(text)}</div>
-    <div class="inf-avatar inf-avatar-user">W</div>`;
+  el.innerHTML = `
+    <div class="inf-msg-user-inner">
+      <div class="inf-msg-content">${infEscape(text)}</div>
+      <span class="inf-timestamp">${infNow()}</span>
+    </div>
+    <div class="inf-avatar-user-icon">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="5" r="2.5"/>
+        <path d="M2.5 13c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5"/>
+      </svg>
+    </div>`;
   chat.appendChild(el);
 }
 
-function infRenderAssistant(id) {
+function infRenderAssistant(id, modelName) {
   const chat = document.getElementById("inf-chat");
   const el = document.createElement("div");
   el.className = "inf-msg inf-msg-assistant";
   el.id = `inf-msg-${id}`;
+  const family = infModelFamily(modelName);
+  const shortName = infModelShort(modelName);
   el.innerHTML = `
-    <div class="inf-avatar inf-avatar-m4">M4</div>
+    <div class="inf-avatar-col">
+      <div class="inf-avatar-icon">${familyIcon(family)}</div>
+      <span class="inf-avatar-model-label">${shortName}</span>
+    </div>
     <div class="inf-msg-body">
       <div class="inf-think-block" id="inf-tb-${id}" style="display:none">
         <div class="inf-think-header" onclick="infToggleThink(${id})">
@@ -728,6 +744,7 @@ function infRenderAssistant(id) {
       </div>
       <div class="inf-response streaming" id="inf-re-${id}"></div>
       <div class="inf-stats-row" id="inf-sr-${id}" style="display:none"></div>
+      <span class="inf-timestamp" id="inf-ts-time-${id}"></span>
     </div>`;
   chat.appendChild(el);
 }
@@ -813,50 +830,85 @@ function infEscape(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function infNow() {
+  return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function infModelFamily(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("codellama") || n.includes("llama")) return "llama";
+  if (n.includes("mixtral") || n.includes("mistral"))  return "mistral";
+  if (n.includes("gemma"))     return "gemma";
+  if (n.includes("phi"))       return "phi";
+  if (n.includes("deepseek"))  return "deepseek";
+  if (n.includes("qwen"))      return "qwen";
+  if (n.includes("starcoder")) return "starcoder";
+  return "";
+}
+
+function infModelShort(name) {
+  if (!name) return "–";
+  const s = name.split(":")[0];
+  return s.length > 12 ? s.slice(0, 11) + "…" : s;
+}
+
+function infCopyCode(btn) {
+  const code = btn.closest(".inf-code-block").querySelector("code");
+  if (!code) return;
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    btn.textContent = "Copiado ✓";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copiar"; btn.classList.remove("copied"); }, 2000);
+  }).catch(() => {});
+}
+
 // ── Markdown renderer (streaming-safe: call on full text after done) ──────────
 function infMarkdown(raw) {
   const lines = raw.split("\n");
-  let out = "", inCode = false, codeBuf = [];
+  let out = "", inCode = false, codeLang = "", codeBuf = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     if (!inCode && line.startsWith("```")) {
-      inCode = true; codeBuf = []; continue;
+      inCode = true; codeLang = line.slice(3).trim() || "code"; codeBuf = []; continue;
     }
     if (inCode && line.trimEnd() === "```") {
-      out += `<pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>`;
+      out += `<div class="inf-code-block">
+        <div class="inf-code-header">
+          <span class="inf-code-lang">${infEscape(codeLang)}</span>
+          <button class="inf-code-copy" onclick="infCopyCode(this)">Copiar</button>
+        </div>
+        <pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>
+      </div>`;
       inCode = false; continue;
     }
     if (inCode) { codeBuf.push(line); continue; }
 
     let l = infEscape(line);
-    // Inline code
     l = l.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Bold
     l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    // Italic
     l = l.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
-    // Headers
     if (l.startsWith("### "))      { out += `<h4>${l.slice(4)}</h4>`; continue; }
     else if (l.startsWith("## ")) { out += `<h3>${l.slice(3)}</h3>`; continue; }
     else if (l.startsWith("# "))  { out += `<h2>${l.slice(2)}</h2>`; continue; }
-    // Bullet
     if (/^[-*] /.test(l)) { out += `<li>${l.slice(2)}</li>`; continue; }
-    // Numbered
-    if (/^\d+\. /.test(l)) { out += `<li>${l.replace(/^\d+\. /,"")}</li>`; continue; }
-    // Empty line
+    if (/^\d+\. /.test(l)) { out += `<li>${l.replace(/^\d+\. /, "")}</li>`; continue; }
     if (l.trim() === "") { out += "<br>"; continue; }
-
     out += l + "<br>";
   }
-  if (inCode) out += `<pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>`;
+  if (inCode) out += `<div class="inf-code-block">
+    <div class="inf-code-header">
+      <span class="inf-code-lang">${infEscape(codeLang)}</span>
+      <button class="inf-code-copy" onclick="infCopyCode(this)">Copiar</button>
+    </div>
+    <pre><code>${codeBuf.map(infEscape).join("\n")}</code></pre>
+  </div>`;
 
-  // Wrap consecutive <li> in <ul>
   out = out.replace(/((?:<li>[\s\S]*?<\/li>)+)/g, "<ul>$1</ul>");
-  // Clean trailing <br> before block elements
-  out = out.replace(/<br>(<(?:h[234]|ul|pre|br))/g, "$1");
-
+  out = out.replace(/<br>(<(?:h[234]|ul|div|br))/g, "$1");
   return out;
 }
 
