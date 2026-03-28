@@ -590,6 +590,11 @@ html,body{
   content:'▌';color:var(--green);
   animation:pulse .8s ease-in-out infinite;font-size:14px;
 }
+.inf-response[data-thinking]::before{
+  content:'Processando pensamento…';
+  display:block;font-size:11px;color:rgba(245,214,87,.45);
+  font-style:italic;margin-bottom:4px;
+}
 .inf-response pre{
   background:var(--card);border:1px solid var(--card-border);
   border-radius:7px;padding:10px 12px;overflow-x:auto;margin:8px 0;

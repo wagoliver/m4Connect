@@ -24,7 +24,8 @@ type OllamaChatMsg struct {
 
 type ollamaChatChunk struct {
 	Message struct {
-		Content string `json:"content"`
+		Content  string `json:"content"`
+		Thinking string `json:"thinking"` // Ollama native thinking API (qwen3, deepseek-r1)
 	} `json:"message"`
 	Done               bool  `json:"done"`
 	TotalDuration      int64 `json:"total_duration"`
@@ -71,8 +72,9 @@ func handleInference(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	var (
-		inThink bool
-		buf     string
+		buf             string
+		inTagThink      bool // <think> tag inside message.content
+		nativeThinkOpen bool // Ollama native thinking field (qwen3, deepseek-r1)
 	)
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -90,15 +92,15 @@ func handleInference(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if chunk.Done {
-			// Flush remaining buffer
+			// Flush remaining content buffer
 			if buf != "" {
 				evName := "token"
-				if inThink {
+				if inTagThink {
 					evName = "think"
 				}
 				sseWrite(w, flusher, evName, map[string]string{"token": buf})
 			}
-			if inThink {
+			if inTagThink || nativeThinkOpen {
 				sseWrite(w, flusher, "think_end", nil)
 			}
 
@@ -121,8 +123,25 @@ func handleInference(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		buf += chunk.Message.Content
-		buf = flushThinkBuf(w, flusher, buf, &inThink)
+		// ── Native thinking field (qwen3, deepseek-r1 on Ollama ≥0.9) ──────────
+		if chunk.Message.Thinking != "" {
+			if !nativeThinkOpen {
+				nativeThinkOpen = true
+				sseWrite(w, flusher, "think_start", nil)
+			}
+			sseWrite(w, flusher, "think", map[string]string{"token": chunk.Message.Thinking})
+		}
+
+		// ── Regular content (also handles <think> tags for other models) ────────
+		if chunk.Message.Content != "" {
+			// Close native thinking block when real content starts
+			if nativeThinkOpen {
+				nativeThinkOpen = false
+				sseWrite(w, flusher, "think_end", nil)
+			}
+			buf += chunk.Message.Content
+			buf = flushThinkBuf(w, flusher, buf, &inTagThink)
+		}
 	}
 }
 

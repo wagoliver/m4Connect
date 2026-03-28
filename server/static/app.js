@@ -648,35 +648,53 @@ function infHandleSSE(event, data, id) {
   switch (event) {
     case "think_start":
       infShowThink(id, true);
+      // Show placeholder in response while thinking
+      const rePlaceholder = document.getElementById(`inf-re-${id}`);
+      if (rePlaceholder) rePlaceholder.setAttribute("data-thinking", "1");
       break;
-    case "think":
+
+    case "think": {
       infCurrent.thinkText += data.token || "";
       const tc = document.getElementById(`inf-tc-${id}`);
       if (tc) tc.textContent = infCurrent.thinkText;
+      // Update header counter
+      const th = document.getElementById(`inf-th-label-${id}`);
+      const chars = infCurrent.thinkText.length;
+      if (th) th.textContent = `Pensando… (${chars} chars)`;
       infScrollChat();
       break;
+    }
+
     case "think_end":
       infCurrent.thinkDone = true;
       infMarkThinkDone(id);
+      // Clear thinking placeholder
+      const reAfterThink = document.getElementById(`inf-re-${id}`);
+      if (reAfterThink) reAfterThink.removeAttribute("data-thinking");
       break;
-    case "token":
+
+    case "token": {
       infCurrent.responseText += data.token || "";
       const re = document.getElementById(`inf-re-${id}`);
       if (re) re.textContent = infCurrent.responseText;
       infScrollChat();
       break;
+    }
+
     case "stats":
       infRenderStats(id, data);
       infMessages.push({ role: "assistant", content: infCurrent.responseText });
       break;
-    case "done":
-      // finalize markdown rendering
+
+    case "done": {
       const rel = document.getElementById(`inf-re-${id}`);
       if (rel) {
         rel.classList.remove("streaming");
         rel.innerHTML = infMarkdown(infCurrent.responseText);
       }
       break;
+    }
+
     case "error":
       infRenderError(id, data.msg || "Erro desconhecido.");
       break;
@@ -703,7 +721,7 @@ function infRenderAssistant(id) {
       <div class="inf-think-block" id="inf-tb-${id}" style="display:none">
         <div class="inf-think-header" onclick="infToggleThink(${id})">
           <div class="inf-think-spinner" id="inf-ts-${id}"></div>
-          <span>Pensando</span>
+          <span id="inf-th-label-${id}">Pensando…</span>
           <span class="inf-think-toggle">▾</span>
         </div>
         <div class="inf-think-content" id="inf-tc-${id}"></div>
@@ -722,6 +740,11 @@ function infShowThink(id, show) {
 function infMarkThinkDone(id) {
   const spinner = document.getElementById(`inf-ts-${id}`);
   if (spinner) spinner.classList.add("done");
+  const label = document.getElementById(`inf-th-label-${id}`);
+  if (label) {
+    const chars = infCurrent.thinkText.length;
+    label.textContent = `Pensamento (${chars} chars) — clique para expandir`;
+  }
   const block = document.getElementById(`inf-tb-${id}`);
   if (block) block.classList.add("collapsed");
 }
