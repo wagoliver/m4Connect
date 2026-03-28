@@ -624,50 +624,113 @@
             <span class="bench-header-sub">Cat8 P2P · 10.10.10.x</span>
           </div>
 
-          <!-- Gauge -->
-          <div class="bench-gauge-wrap">
-            <svg class="bench-gauge-svg" viewBox="0 0 200 112" xmlns="http://www.w3.org/2000/svg">
-              <!-- Tick marks -->
-              <path class="bench-gauge-ticks" d="M10,107 A90,90 0 0,1 190,107" stroke="none"/>
-              <!-- Track -->
-              <path class="bench-gauge-track" d="M10,107 A90,90 0 0,1 190,107"/>
-              <!-- Fill -->
-              <path class="bench-gauge-fill" id="bench-fill" d="M10,107 A90,90 0 0,1 190,107"/>
-            </svg>
-            <!-- Speed labels on gauge edges -->
-            <span class="bench-gauge-label-lo">0</span>
-            <span class="bench-gauge-label-hi">1000</span>
-            <!-- Center overlay -->
-            <div class="bench-gauge-center">
-              <div class="bench-speed-val" id="bench-speed-val">0</div>
-              <div class="bench-speed-unit" id="bench-speed-unit">Mbps</div>
-              <div class="bench-speed-phase" id="bench-speed-phase">Pronto para testar</div>
-            </div>
-          </div>
+          <!-- Body: 2-column grid -->
+          <div class="bench-body">
 
-          <!-- Phase indicators -->
-          <div class="bench-phases">
-            <div class="bench-phase-item" id="bph-ping">
-              <span class="bench-phase-dot"></span>
-              <span>Ping</span>
+            <!-- Left: Connection card -->
+            <div class="card bench-conn-card">
+              <div class="card-head">
+                <span class="card-title">Conexão Direta</span>
+                <span class="bench-conn-badge">P2P</span>
+              </div>
+              <div class="bench-conn-visual">
+                <img src="/static/img/Connection.png" class="bench-conn-img" alt="Conexão Cat8"/>
+              </div>
+              <div class="bench-conn-devices">
+                <div class="bench-conn-dev">
+                  <span class="bench-conn-dev-dot" style="background:var(--green)"></span>
+                  <span class="bench-conn-dev-name">Mac Mini M4</span>
+                  <span class="bench-conn-dev-ip mono">10.10.10.1</span>
+                </div>
+                <div class="bench-conn-wire">
+                  <div class="bench-conn-wire-line"></div>
+                  <span class="bench-conn-wire-label">Cat8 · Ethernet</span>
+                  <div class="bench-conn-wire-line"></div>
+                </div>
+                <div class="bench-conn-dev">
+                  <span class="bench-conn-dev-dot" style="background:var(--blue)"></span>
+                  <span class="bench-conn-dev-name">Windows PC</span>
+                  <span class="bench-conn-dev-ip mono">10.10.10.2</span>
+                </div>
+              </div>
+              <div class="bench-conn-stats">
+                <div class="stat-row">
+                  <span class="stat-key">Latência</span>
+                  <span class="stat-val mono" id="bench-conn-ping">–</span>
+                  <span class="stat-key">ms</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-key">Capacidade</span>
+                  <span class="stat-val mono">1 Gbps</span>
+                </div>
+              </div>
             </div>
-            <div class="bench-phase-sep"></div>
-            <div class="bench-phase-item" id="bph-download">
-              <span class="bench-phase-dot"></span>
-              <span>Download</span>
+
+            <!-- Right: Gauge card -->
+            <div class="card bench-gauge-card">
+              <div class="bench-gauge-wrap">
+                <svg class="bench-gauge-svg" viewBox="0 0 200 112" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Inner depth ring -->
+                  <path class="bench-gauge-ring" d="M28,107 A72,72 0 0,1 172,107"/>
+                  <!-- Tick marks (at r=85→75, i.e. just inside the track) -->
+                  <line class="bench-tick" x1="15" y1="107" x2="25" y2="107"/>
+                  <line class="bench-tick" x1="39.9" y1="46.9" x2="47.1" y2="54.1"/>
+                  <line class="bench-tick" x1="100" y1="22" x2="100" y2="32"/>
+                  <line class="bench-tick" x1="160.1" y1="46.9" x2="152.9" y2="54.1"/>
+                  <line class="bench-tick" x1="185" y1="107" x2="175" y2="107"/>
+                  <!-- Tick labels -->
+                  <text class="bench-tick-lbl" x="9" y="101" text-anchor="middle">0</text>
+                  <text class="bench-tick-lbl" x="32" y="38" text-anchor="middle">250</text>
+                  <text class="bench-tick-lbl" x="100" y="13" text-anchor="middle">500</text>
+                  <text class="bench-tick-lbl" x="168" y="38" text-anchor="middle">750</text>
+                  <text class="bench-tick-lbl" x="191" y="101" text-anchor="middle">1G</text>
+                  <!-- Track -->
+                  <path class="bench-gauge-track" d="M10,107 A90,90 0 0,1 190,107"/>
+                  <!-- Fill arc -->
+                  <path class="bench-gauge-fill" id="bench-fill" d="M10,107 A90,90 0 0,1 190,107"/>
+                </svg>
+                <!-- Center overlay -->
+                <div class="bench-gauge-center">
+                  <div class="bench-speed-val" id="bench-speed-val">0</div>
+                  <div class="bench-speed-unit" id="bench-speed-unit">Mbps</div>
+                  <div class="bench-speed-phase" id="bench-speed-phase">Pronto para testar</div>
+                </div>
+              </div>
+              <!-- Phase indicators -->
+              <div class="bench-phases">
+                <div class="bench-phase-item" id="bph-ping">
+                  <span class="bench-phase-dot"></span>
+                  <span>Ping</span>
+                </div>
+                <div class="bench-phase-sep"></div>
+                <div class="bench-phase-item" id="bph-download">
+                  <span class="bench-phase-dot"></span>
+                  <span>Download</span>
+                </div>
+                <div class="bench-phase-sep"></div>
+                <div class="bench-phase-item" id="bph-upload">
+                  <span class="bench-phase-dot"></span>
+                  <span>Upload</span>
+                </div>
+              </div>
             </div>
-            <div class="bench-phase-sep"></div>
-            <div class="bench-phase-item" id="bph-upload">
-              <span class="bench-phase-dot"></span>
-              <span>Upload</span>
-            </div>
-          </div>
+
+          </div><!-- /bench-body -->
 
           <!-- Start button -->
           <div class="bench-start-wrap">
             <button class="bench-start-btn" id="bench-start-btn" onclick="runBenchmark()">
               Iniciar Teste
             </button>
+          </div>
+
+          <!-- Performance summary (shown after test) -->
+          <div class="bench-summary" id="bench-summary">
+            <div class="bench-summary-score" id="bench-summary-score"></div>
+            <div class="bench-summary-info">
+              <div class="bench-summary-title" id="bench-summary-title">–</div>
+              <div class="bench-summary-sub" id="bench-summary-sub">–</div>
+            </div>
           </div>
 
           <!-- Results -->

@@ -1054,7 +1054,7 @@ async function benchTestPing() {
 
 async function benchTestDownload() {
   benchSetPhase("download");
-  const SIZE = 100 * 1024 * 1024; // 100 MB
+  const SIZE = 200 * 1024 * 1024; // 200 MB — longer test for stable reading
   const start = performance.now();
   let received = 0;
 
@@ -1065,7 +1065,7 @@ async function benchTestDownload() {
     if (done) break;
     received += value.byteLength;
     const elapsed = (performance.now() - start) / 1000;
-    if (elapsed > 0.05) benchSetGauge((received * 8) / (elapsed * 1e6), "download");
+    if (elapsed > 0.1) benchSetGauge((received * 8) / (elapsed * 1e6), "download");
   }
 
   const elapsed = (performance.now() - start) / 1000;
@@ -1076,7 +1076,7 @@ async function benchTestDownload() {
 
 async function benchTestUpload() {
   benchSetPhase("upload");
-  const SIZE = 50 * 1024 * 1024; // 50 MB
+  const SIZE = 100 * 1024 * 1024; // 100 MB — longer test for stable reading
   return new Promise((resolve) => {
     const data = new Blob([new ArrayBuffer(SIZE)]);
     const xhr  = new XMLHttpRequest();
@@ -1101,6 +1101,43 @@ async function benchTestUpload() {
   });
 }
 
+function benchShowSummary(pingMs, dlMbps, ulMbps) {
+  const summary = document.getElementById("bench-summary");
+  const scoreEl = document.getElementById("bench-summary-score");
+  const titleEl = document.getElementById("bench-summary-title");
+  const subEl   = document.getElementById("bench-summary-sub");
+  if (!summary) return;
+
+  const avg = (dlMbps + ulMbps) / 2;
+  const pct = Math.round((avg / 1000) * 100);
+
+  let emoji, title, color, sub;
+  if (avg >= 800) {
+    emoji = "🚀"; title = "Excelente — Gigabit pleno"; color = "rgba(48,209,88,.15)";
+    sub = `Conexão operando a ${pct}% da capacidade máxima do cabo Cat8.`;
+  } else if (avg >= 500) {
+    emoji = "⚡"; title = "Muito boa performance"; color = "rgba(74,144,217,.12)";
+    sub = `Throughput de ${pct}% — acima da média para P2P via Ethernet.`;
+  } else if (avg >= 200) {
+    emoji = "✓"; title = "Performance moderada"; color = "rgba(245,214,87,.1)";
+    sub = `${pct}% de aproveitamento. Verifique o driver de rede ou cabo.`;
+  } else {
+    emoji = "⚠"; title = "Performance abaixo do esperado"; color = "rgba(255,69,58,.1)";
+    sub = "Possível problema no cabo, driver ou configuração de rede.";
+  }
+
+  scoreEl.textContent = emoji;
+  scoreEl.style.background = color;
+  titleEl.textContent = title;
+  subEl.innerHTML =
+    `${sub}<br>` +
+    `<span style="color:var(--text3);font-family:var(--mono);font-size:10px">` +
+    `↓ ${dlMbps >= 100 ? dlMbps.toFixed(0) : dlMbps.toFixed(1)} Mbps · ` +
+    `↑ ${ulMbps >= 100 ? ulMbps.toFixed(0) : ulMbps.toFixed(1)} Mbps · ` +
+    `Ping ${pingMs.toFixed(2)} ms</span>`;
+  summary.classList.add("visible");
+}
+
 async function runBenchmark() {
   if (benchRunning) return;
   benchRunning = true;
@@ -1110,6 +1147,8 @@ async function runBenchmark() {
   btn.textContent = "Testando…";
 
   // Reset UI
+  const summary = document.getElementById("bench-summary");
+  if (summary) summary.classList.remove("visible");
   ["ping","download","upload"].forEach(p => {
     const ph = document.getElementById(`bph-${p}`);
     if (ph) ph.className = "bench-phase-item";
@@ -1124,27 +1163,30 @@ async function runBenchmark() {
   document.getElementById("bench-speed-val").textContent   = "0";
   document.getElementById("bench-speed-unit").textContent  = "Mbps";
   document.getElementById("bench-speed-phase").textContent = "Iniciando…";
+  const connPingEl = document.getElementById("bench-conn-ping");
+  if (connPingEl) connPingEl.textContent = "–";
 
   try {
     const pingMs = await benchTestPing();
     document.getElementById("bench-res-ping").textContent = pingMs.toFixed(2);
     document.getElementById("bench-card-ping").classList.add("done");
+    if (connPingEl) connPingEl.textContent = pingMs.toFixed(2);
 
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
     const dlMbps = await benchTestDownload();
     document.getElementById("bench-res-dl").textContent = dlMbps >= 100 ? dlMbps.toFixed(0) : dlMbps.toFixed(1);
     document.getElementById("bench-card-dl").classList.add("done");
 
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
     const ulMbps = await benchTestUpload();
     document.getElementById("bench-res-ul").textContent = ulMbps >= 100 ? ulMbps.toFixed(0) : ulMbps.toFixed(1);
     document.getElementById("bench-card-ul").classList.add("done");
 
-    // Show download result on gauge
     benchSetGauge(dlMbps, "download");
     document.getElementById("bench-speed-phase").textContent = "Concluído";
+    benchShowSummary(pingMs, dlMbps, ulMbps);
   } catch (err) {
     document.getElementById("bench-speed-phase").textContent = "Erro";
     addLog("Benchmark: " + (err.message || err), "error");
