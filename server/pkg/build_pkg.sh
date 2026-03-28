@@ -11,7 +11,7 @@ PAYLOAD_DIR="$BUILD_DIR/payload/usr/local/m4server"
 SCRIPTS_DIR="$BUILD_DIR/scripts"
 OUTPUT="$SCRIPT_DIR/M4Server.pkg"
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 HASH=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 echo "==> Compilando binário Go... (v${VERSION} · ${HASH})"

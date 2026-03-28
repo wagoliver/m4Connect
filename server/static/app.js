@@ -25,6 +25,7 @@ document.querySelectorAll(".nav-item").forEach(item => {
     document.getElementById(`page-${page}`).classList.add("active");
     if (page === "dashboard") redrawCharts();
     if (page === "history")   setTimeout(() => loadHistory(currentPeriod), 30);
+    if (page === "llm")       loadLLM();
   });
 });
 
@@ -534,3 +535,206 @@ window.addEventListener("load", () => {
     .then(v => setText("sb-version", `v${v.version} · ${v.build}`))
     .catch(() => {});
 });
+
+// ── LLM page ──────────────────────────────────────────────────────────────────
+
+let llmTimer = null;
+
+function loadLLM() {
+  fetch("/api/ollama")
+    .then(r => r.json())
+    .then(renderLLM)
+    .catch(() => renderLLMOffline());
+}
+
+function renderLLMOffline() {
+  document.getElementById("llm-dot").className = "llm-dot offline";
+  document.getElementById("llm-status-text").textContent = "Offline";
+  document.getElementById("llm-top-grid").style.display = "none";
+  document.getElementById("llm-models-card") && (document.getElementById("llm-models-card").style.display = "none");
+  document.getElementById("llm-offline-wrap").style.display = "flex";
+}
+
+function renderLLM(d) {
+  const offlineEl = document.getElementById("llm-offline-wrap");
+  const topGrid   = document.getElementById("llm-top-grid");
+  const modCard   = document.getElementById("llm-models-card");
+
+  if (!d.online) {
+    renderLLMOffline();
+    return;
+  }
+
+  offlineEl.style.display = "none";
+  topGrid.style.display   = "";
+  if (modCard) modCard.style.display = "";
+
+  // Status bar
+  document.getElementById("llm-dot").className = "llm-dot online";
+  document.getElementById("llm-status-text").textContent = "Ollama Online";
+  document.getElementById("llm-version-chip").textContent = d.version || "–";
+  document.getElementById("llm-ping-chip").textContent    = `${d.ping_ms} ms`;
+
+  // ── Active model card ──
+  const running = d.running_models || [];
+  const hasRunning = running.length > 0;
+  const activeModel = hasRunning ? running[0] : null;
+
+  const runBadge = document.getElementById("llm-run-badge");
+  const activeBody = document.getElementById("llm-active-body");
+  const expiresRow = document.getElementById("llm-expires-row");
+
+  if (activeModel) {
+    runBadge.textContent = "Running";
+    runBadge.className   = "llm-badge-run";
+
+    document.getElementById("llm-active-icon").innerHTML = familyIcon(activeModel.details?.family || "");
+    document.getElementById("llm-active-name").textContent   = activeModel.name || "–";
+    document.getElementById("llm-active-family").textContent = familyLabel(activeModel.details?.family || "");
+    document.getElementById("llm-active-params").textContent = activeModel.details?.parameter_size || "–";
+    document.getElementById("llm-active-quant").textContent  = activeModel.details?.quantization_level || "–";
+    document.getElementById("llm-active-fmt").textContent    = activeModel.details?.format?.toUpperCase() || "–";
+
+    expiresRow.style.display = "";
+    const exp = new Date(activeModel.expires_at);
+    const diff = Math.round((exp - Date.now()) / 60000);
+    document.getElementById("llm-expires").textContent = diff > 0 ? `${diff} min` : "em breve";
+  } else {
+    runBadge.textContent = "Idle";
+    runBadge.className   = "llm-badge-run idle";
+    document.getElementById("llm-active-icon").innerHTML = familyIcon("");
+    document.getElementById("llm-active-name").textContent   = "Nenhum modelo ativo";
+    document.getElementById("llm-active-family").textContent = "–";
+    document.getElementById("llm-active-params").textContent = "–";
+    document.getElementById("llm-active-quant").textContent  = "–";
+    document.getElementById("llm-active-fmt").textContent    = "–";
+    expiresRow.style.display = "none";
+  }
+
+  // ── Memory donut ──
+  const totalRAM = 24; // typical M4 — we'll show loaded GB vs totalRAM
+  const memGB = d.mem_used_bytes ? d.mem_used_bytes / 1e9 : 0;
+  const memPct = Math.min((memGB / totalRAM) * 100, 100);
+  setDonut("llm-mem-arc", memPct);
+  document.getElementById("llm-mem-val").textContent = memGB.toFixed(1);
+  document.getElementById("llm-mem-badge").textContent = `${memGB.toFixed(1)} GB`;
+  document.getElementById("llm-mem-sub").textContent = "GB loaded";
+
+  // ── Runtime card ──
+  const modCount = (d.models || []).length;
+  document.getElementById("llm-rt-host").textContent    = "Ollama " + (d.version || "–");
+  document.getElementById("llm-rt-models").textContent  = `${modCount} modelo${modCount !== 1 ? "s" : ""} instalado${modCount !== 1 ? "s" : ""}`;
+
+  const pingMs = d.ping_ms || 0;
+  const pingPct = Math.min((pingMs / 500) * 100, 100);
+  document.getElementById("llm-ping-fill").style.width = pingPct + "%";
+  document.getElementById("llm-ping-val").textContent  = `${pingMs} ms`;
+
+  // ── Models list ──
+  const list = document.getElementById("llm-models-list");
+  const models = d.models || [];
+  const runningNames = new Set((d.running_models || []).map(m => m.name));
+
+  document.getElementById("llm-models-count").textContent = `${modCount} total`;
+
+  if (models.length === 0) {
+    list.innerHTML = `<div class="llm-no-model"><span>Nenhum modelo instalado</span><code style="font-size:11px;color:var(--text3)">ollama pull llama3</code></div>`;
+    return;
+  }
+
+  let html = `<div class="llm-models-header">
+    <span></span>
+    <span>Model</span>
+    <span style="text-align:right">Size</span>
+    <span style="text-align:center">Quant</span>
+    <span style="text-align:center">Params</span>
+    <span style="text-align:right">Status</span>
+  </div>`;
+
+  models.forEach(m => {
+    const isLoaded = runningNames.has(m.name);
+    const sizeGB   = m.size ? (m.size / 1e9).toFixed(1) + " GB" : "–";
+    const quant    = m.details?.quantization_level || "–";
+    const params   = m.details?.parameter_size || "–";
+    const family   = m.details?.family || "";
+    const statusPill = isLoaded
+      ? `<span class="llm-status-pill loaded">loaded</span>`
+      : `<span class="llm-status-pill">idle</span>`;
+
+    html += `<div class="llm-model-row">
+      <div class="llm-model-row-icon">${familyIcon(family)}</div>
+      <div>
+        <div class="llm-model-row-name">${m.name}</div>
+        <div class="llm-model-row-fam">${familyLabel(family)}</div>
+      </div>
+      <div class="llm-model-row-size">${sizeGB}</div>
+      <div class="llm-model-row-quant">${quant}</div>
+      <div class="llm-model-row-params">${params}</div>
+      <div class="llm-model-row-status">${statusPill}</div>
+    </div>`;
+  });
+
+  list.innerHTML = html;
+}
+
+// ── Family icons (inline SVG) ─────────────────────────────────────────────────
+
+function familyLabel(family) {
+  const labels = {
+    llama: "Meta · LLaMA",
+    mistral: "Mistral AI",
+    gemma: "Google · Gemma",
+    phi: "Microsoft · Phi",
+    qwen: "Alibaba · Qwen",
+    deepseek: "DeepSeek",
+    "nomic-bert": "Nomic",
+    mxbai: "MixedBread",
+    starcoder: "BigCode · StarCoder",
+    codellama: "Meta · Code Llama",
+    wizard: "WizardLM",
+  };
+  return labels[family?.toLowerCase()] || (family ? family.charAt(0).toUpperCase() + family.slice(1) : "Unknown");
+}
+
+function familyIcon(family) {
+  const f = (family || "").toLowerCase();
+
+  // Llama / Meta
+  if (f === "llama" || f === "codellama") return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 3C9.5 3 7.5 4.5 7 7c-.6 2.8.4 5 2 6.5V18a1 1 0 0 0 2 0v-1h2v1a1 1 0 0 0 2 0v-4.5c1.6-1.5 2.6-3.7 2-6.5C16.5 4.5 14.5 3 12 3Z" stroke="var(--orange)" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle cx="10" cy="9" r="1" fill="var(--orange)"/>
+    <circle cx="14" cy="9" r="1" fill="var(--orange)"/>
+  </svg>`;
+
+  // Mistral
+  if (f === "mistral") return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 7h16M4 12h16M4 17h10" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M18 15l3 2-3 2" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+
+  // Gemma / Google
+  if (f === "gemma") return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 4l2.5 4.5h-5L12 4Z" fill="var(--blue)" opacity=".9"/>
+    <path d="M12 4l4.5 2.5-2 4-2.5-4.5Z" fill="var(--green)" opacity=".8"/>
+    <path d="M7.5 6.5L12 4l-2.5 4.5-2-4Z" fill="var(--yellow)" opacity=".8"/>
+    <path d="M9.5 8.5h5l2 5H7.5l2-5Z" fill="var(--text2)" opacity=".3"/>
+    <path d="M7.5 13.5h9l-2 4h-5l-2-4Z" fill="var(--text2)" opacity=".2"/>
+  </svg>`;
+
+  // Phi / Microsoft
+  if (f === "phi") return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <text x="4" y="18" font-size="16" font-family="serif" font-style="italic" fill="var(--blue)" font-weight="700">φ</text>
+  </svg>`;
+
+  // Qwen / DeepSeek
+  if (f === "qwen" || f === "deepseek") return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="6" stroke="var(--text2)" stroke-width="1.4"/>
+    <path d="M9 12h6M12 9v6" stroke="var(--text2)" stroke-width="1.4" stroke-linecap="round"/>
+  </svg>`;
+
+  // Default
+  return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="4" width="16" height="16" rx="4" stroke="var(--text3)" stroke-width="1.4"/>
+    <path d="M8 12h8M8 8.5h8M8 15.5h5" stroke="var(--text3)" stroke-width="1.3" stroke-linecap="round"/>
+  </svg>`;
+}

@@ -68,6 +68,14 @@
           </svg>
           Histórico
         </a>
+        <a class="nav-item" data-page="llm">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="12" height="8" rx="1.5"/>
+            <path d="M4 7h6M4 9.5h3"/>
+            <circle cx="10.5" cy="9.5" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+          LLM
+        </a>
       </nav>
 
       <div style="flex:1"></div>
@@ -319,6 +327,123 @@
               <div class="hist-axis" id="hist-net-axis"><span></span><span></span></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- LLM -->
+      <div class="page" id="page-llm">
+        <div class="llm-wrap">
+
+          <!-- Status bar -->
+          <div class="llm-status-bar" id="llm-status-bar">
+            <div class="llm-status-indicator">
+              <span class="llm-dot" id="llm-dot"></span>
+              <span class="llm-status-text" id="llm-status-text">Verificando…</span>
+            </div>
+            <div class="llm-meta-row">
+              <span class="llm-meta-chip" id="llm-version-chip">–</span>
+              <span class="llm-meta-chip" id="llm-ping-chip">– ms</span>
+            </div>
+          </div>
+
+          <!-- Top cards -->
+          <div class="llm-top-grid" id="llm-top-grid">
+
+            <!-- Active model -->
+            <div class="card llm-card-active">
+              <div class="card-head">
+                <span class="card-title">Active Model</span>
+                <span class="llm-badge-run" id="llm-run-badge">–</span>
+              </div>
+              <div class="llm-active-body" id="llm-active-body">
+                <div class="llm-model-icon-wrap" id="llm-active-icon">
+                  <!-- family icon injected by JS -->
+                </div>
+                <div class="llm-active-info">
+                  <div class="llm-active-name" id="llm-active-name">–</div>
+                  <div class="llm-active-family" id="llm-active-family">–</div>
+                  <div class="llm-active-chips">
+                    <span class="llm-chip" id="llm-active-params">–</span>
+                    <span class="llm-chip" id="llm-active-quant">–</span>
+                    <span class="llm-chip" id="llm-active-fmt">–</span>
+                  </div>
+                </div>
+              </div>
+              <div class="llm-expires-row" id="llm-expires-row">
+                <span class="stat-key">Expira em</span>
+                <span class="stat-val mono" id="llm-expires">–</span>
+              </div>
+            </div>
+
+            <!-- Memory donut -->
+            <div class="card llm-card-mem">
+              <div class="card-head">
+                <span class="card-title">Memory</span>
+                <span class="card-hint" id="llm-mem-badge">–</span>
+              </div>
+              <div class="card-body" style="justify-content:center">
+                <div class="donut-wrap">
+                  <svg class="donut-svg" viewBox="0 0 110 110">
+                    <circle class="donut-track" cx="55" cy="55" r="46"/>
+                    <circle class="donut-arc" id="llm-mem-arc" cx="55" cy="55" r="46"/>
+                  </svg>
+                  <div class="donut-inner">
+                    <span class="donut-val donut-val--lg" id="llm-mem-val">–</span>
+                    <span class="donut-sub" id="llm-mem-sub">GB loaded</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Runtime info -->
+            <div class="card llm-card-runtime">
+              <div class="card-head">
+                <span class="card-title">Runtime</span>
+              </div>
+              <div class="sysinfo-list" style="margin-top:8px">
+                <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="llm-rt-host">–</span></div>
+                <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="llm-rt-models">–</span></div>
+                <div class="sysinfo-row"><span class="sysinfo-dot"></span><span class="sysinfo-text" id="llm-rt-endpoint">localhost:11434</span></div>
+              </div>
+              <div class="llm-ping-bar-wrap">
+                <div class="llm-ping-label">API Latency</div>
+                <div class="llm-ping-track"><div class="llm-ping-fill" id="llm-ping-fill"></div></div>
+                <div class="llm-ping-val mono" id="llm-ping-val">–</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Models list -->
+          <div class="card llm-models-card" id="llm-models-card">
+            <div class="card-head">
+              <span class="card-title">Installed Models</span>
+              <span class="card-hint" id="llm-models-count">–</span>
+            </div>
+            <div class="llm-models-list" id="llm-models-list">
+              <!-- rows injected by JS -->
+            </div>
+          </div>
+
+          <!-- Offline state -->
+          <div class="llm-offline-wrap" id="llm-offline-wrap" style="display:none">
+            <div class="llm-offline-art">
+              <svg viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="100" cy="148" rx="72" ry="8" fill="var(--bg2)" opacity=".6"/>
+                <rect x="60" y="60" width="80" height="72" rx="10" fill="var(--bg2)" stroke="var(--border)" stroke-width="1.5"/>
+                <rect x="72" y="76" width="56" height="8" rx="3" fill="var(--text3)" opacity=".4"/>
+                <rect x="72" y="92" width="40" height="8" rx="3" fill="var(--text3)" opacity=".25"/>
+                <rect x="72" y="108" width="48" height="8" rx="3" fill="var(--text3)" opacity=".15"/>
+                <circle cx="100" cy="36" r="18" fill="var(--bg2)" stroke="var(--border)" stroke-width="1.5"/>
+                <line x1="92" y1="28" x2="108" y2="44" stroke="var(--text3)" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+                <line x1="108" y1="28" x2="92" y2="44" stroke="var(--text3)" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+              </svg>
+            </div>
+            <div class="llm-offline-title">Ollama não encontrado</div>
+            <div class="llm-offline-sub">Inicie o Ollama no Mac Mini para monitorar os modelos.</div>
+            <code class="llm-offline-cmd">ollama serve</code>
+          </div>
+
         </div>
       </div>
 

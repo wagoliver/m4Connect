@@ -498,6 +498,142 @@ html,body{
   font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:3px;
 }
 
+/* ── LLM Page ── */
+.llm-wrap{
+  padding:14px;display:flex;flex-direction:column;gap:10px;
+  height:100%;overflow-y:auto;
+}
+.llm-status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:10px;padding:10px 14px;
+}
+.llm-status-indicator{display:flex;align-items:center;gap:8px}
+.llm-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;
+  transition:background .3s;
+}
+.llm-dot.online{background:var(--green);box-shadow:0 0 7px rgba(48,209,88,.5)}
+.llm-dot.offline{background:#ff453a}
+.llm-status-text{font-size:12px;font-weight:500;color:var(--text2)}
+.llm-meta-row{display:flex;gap:6px}
+.llm-meta-chip{
+  font-size:10px;font-family:var(--mono);color:var(--text2);
+  background:rgba(255,255,255,.04);border:1px solid var(--card-border);
+  border-radius:5px;padding:2px 7px;
+}
+
+.llm-top-grid{
+  display:grid;grid-template-columns:1fr 160px 1fr;gap:10px;
+}
+.llm-card-active .card-head,.llm-card-mem .card-head,.llm-card-runtime .card-head{
+  margin-bottom:10px;
+}
+
+/* Active model */
+.llm-active-body{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.llm-model-icon-wrap{
+  width:44px;height:44px;border-radius:10px;flex-shrink:0;
+  background:rgba(255,255,255,.04);border:1px solid var(--card-border);
+  display:flex;align-items:center;justify-content:center;
+}
+.llm-model-icon-wrap svg{width:26px;height:26px}
+.llm-active-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;word-break:break-all}
+.llm-active-family{font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:capitalize}
+.llm-active-chips{display:flex;flex-wrap:wrap;gap:4px}
+.llm-chip{
+  font-size:10px;font-family:var(--mono);
+  background:rgba(255,255,255,.05);border:1px solid var(--card-border);
+  border-radius:4px;padding:2px 6px;color:var(--text2);
+}
+.llm-badge-run{
+  font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;
+  background:rgba(48,209,88,.12);color:var(--green);border:1px solid rgba(48,209,88,.25);
+}
+.llm-badge-run.idle{background:rgba(255,255,255,.04);color:var(--text3);border-color:var(--card-border)}
+.llm-expires-row{
+  display:flex;align-items:center;gap:8px;padding-top:10px;
+  border-top:1px solid var(--card-border);font-size:11px;
+}
+
+/* Memory donut — reuse .donut-* classes */
+.llm-card-mem{display:flex;flex-direction:column}
+
+/* Runtime */
+.llm-ping-bar-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--card-border)}
+.llm-ping-label{font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.llm-ping-track{
+  height:4px;background:var(--text3);border-radius:2px;overflow:hidden;margin-bottom:4px;
+}
+.llm-ping-fill{
+  height:100%;border-radius:2px;background:var(--green);
+  transition:width .4s;width:0%;
+}
+.llm-ping-val{font-size:11px;color:var(--text2)}
+
+/* Models list */
+.llm-models-card{flex:1}
+.llm-models-list{display:flex;flex-direction:column;gap:0}
+.llm-model-row{
+  display:grid;
+  grid-template-columns:32px 1fr 80px 80px 80px 60px;
+  align-items:center;gap:10px;
+  padding:9px 2px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  font-size:12px;
+}
+.llm-model-row:last-child{border-bottom:none}
+.llm-model-row-icon{
+  width:28px;height:28px;border-radius:7px;
+  background:rgba(255,255,255,.04);border:1px solid var(--card-border);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.llm-model-row-icon svg{width:16px;height:16px}
+.llm-model-row-name{font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.llm-model-row-fam{font-size:10px;color:var(--text2);margin-top:1px}
+.llm-model-row-size{font-family:var(--mono);font-size:11px;color:var(--text2);text-align:right}
+.llm-model-row-quant{font-family:var(--mono);font-size:10px;color:var(--text2);text-align:center}
+.llm-model-row-params{font-family:var(--mono);font-size:10px;color:var(--text2);text-align:center}
+.llm-model-row-status{text-align:right}
+.llm-status-pill{
+  display:inline-block;font-size:9px;font-family:var(--mono);
+  padding:2px 7px;border-radius:10px;
+  background:rgba(255,255,255,.04);color:var(--text3);border:1px solid var(--card-border);
+}
+.llm-status-pill.loaded{
+  background:rgba(48,209,88,.1);color:var(--green);border-color:rgba(48,209,88,.25);
+}
+.llm-models-header{
+  display:grid;
+  grid-template-columns:32px 1fr 80px 80px 80px 60px;
+  gap:10px;padding:0 2px 8px;
+  border-bottom:1px solid var(--card-border);margin-bottom:4px;
+}
+.llm-models-header span{
+  font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-family:var(--mono);
+}
+.llm-models-header span:nth-child(n+3){text-align:right}
+.llm-models-header span:nth-child(4),.llm-models-header span:nth-child(5){text-align:center}
+
+/* Offline */
+.llm-offline-wrap{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:40px 20px;flex:1;
+}
+.llm-offline-art svg{width:160px;height:auto;display:block}
+.llm-offline-title{font-size:15px;font-weight:600;color:var(--text)}
+.llm-offline-sub{font-size:12px;color:var(--text2);text-align:center;max-width:280px}
+.llm-offline-cmd{
+  font-family:var(--mono);font-size:12px;
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:7px;padding:6px 14px;color:var(--green);
+}
+.llm-no-model{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:24px 0;color:var(--text2);font-size:12px;
+}
+
 /* ── Animations ── */
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
