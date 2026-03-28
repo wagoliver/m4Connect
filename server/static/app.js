@@ -1111,23 +1111,35 @@ function benchShowSummary(pingMs, dlMbps, ulMbps) {
   const avg = (dlMbps + ulMbps) / 2;
   const pct = Math.round((avg / 1000) * 100);
 
-  let emoji, title, color, sub;
+  // SVG icons — no emojis
+  const svgCheck = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2.5 8.5 6.5 12.5 13.5 4"/></svg>`;
+  const svgBolt  = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2L4 9h6.5L6.5 14"/></svg>`;
+  const svgWarn  = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5L14 13.5H2Z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12" r=".6" fill="currentColor" stroke="none"/></svg>`;
+
+  let icon, title, iconColor, borderColor, sub;
   if (avg >= 800) {
-    emoji = "🚀"; title = "Excelente — Gigabit pleno"; color = "rgba(48,209,88,.15)";
-    sub = `Conexão operando a ${pct}% da capacidade máxima do cabo Cat8.`;
+    icon = svgBolt; title = "Excelente — Gigabit pleno";
+    iconColor = "var(--green)"; borderColor = "rgba(48,209,88,.2)";
+    sub = `Conexão operando a ${pct}% da capacidade máxima do Cat8.`;
   } else if (avg >= 500) {
-    emoji = "⚡"; title = "Muito boa performance"; color = "rgba(74,144,217,.12)";
-    sub = `Throughput de ${pct}% — acima da média para P2P via Ethernet.`;
+    icon = svgCheck; title = "Boa performance";
+    iconColor = "var(--blue)"; borderColor = "rgba(74,144,217,.2)";
+    sub = `Throughput de ${pct}% — resultado normal para P2P via Ethernet.`;
   } else if (avg >= 200) {
-    emoji = "✓"; title = "Performance moderada"; color = "rgba(245,214,87,.1)";
-    sub = `${pct}% de aproveitamento. Verifique o driver de rede ou cabo.`;
+    icon = svgWarn; title = "Performance moderada";
+    iconColor = "var(--yellow)"; borderColor = "rgba(245,214,87,.2)";
+    sub = `${pct}% de aproveitamento. Verifique driver de rede ou cabo.`;
   } else {
-    emoji = "⚠"; title = "Performance abaixo do esperado"; color = "rgba(255,69,58,.1)";
+    icon = svgWarn; title = "Performance abaixo do esperado";
+    iconColor = "#ff453a"; borderColor = "rgba(255,69,58,.2)";
     sub = "Possível problema no cabo, driver ou configuração de rede.";
   }
 
-  scoreEl.textContent = emoji;
-  scoreEl.style.background = color;
+  scoreEl.innerHTML = icon;
+  scoreEl.style.color  = iconColor;
+  scoreEl.style.background = "rgba(255,255,255,.04)";
+  scoreEl.style.border = `1px solid ${borderColor}`;
+  summary.style.borderColor = borderColor;
   titleEl.textContent = title;
   subEl.innerHTML =
     `${sub}<br>` +
