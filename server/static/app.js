@@ -217,12 +217,12 @@ function updateStats(data) {
   setText("cpu-val",      cpu.toFixed(0) + "%");
   setText("cpu-idle",     idle.toFixed(0));
   setText("cpu-badge",    cpu.toFixed(0) + "%");
-  setText("cpu-temp",     data.temperature != null ? data.temperature.toFixed(0) + "°C" : "–°C");
+  setText("cpu-temp",     data.power_w != null ? data.power_w.toFixed(1) + " W" : "– W");
   setText("la1",          data.load_avg_1 != null ? data.load_avg_1.toFixed(2) : "–");
   setText("la5",          data.load_avg_5 != null ? data.load_avg_5.toFixed(2) : "–");
   setText("stat-procs",   data.process_count ?? "–");
   setText("stat-threads", data.thread_count  ?? "–");
-  setText("d-temp-badge", data.temperature != null ? data.temperature.toFixed(0) + "°C" : "–°C");
+  setText("d-temp-badge", data.power_w != null ? data.power_w.toFixed(1) + " W" : "– W");
   setDonut("cpu-arc", cpu);
   drawSparkline(document.getElementById("cpu-chart"), cpuHist, "#30d158");
 
@@ -470,13 +470,13 @@ function renderHistory(data) {
   );
   setHistAxis("hist-ram-axis", pts, period);
 
-  // Temperature (filter zeroes — no data points)
-  const tempPts = pts.filter(p => p.temp > 0);
-  const tempAvg = avg(tempPts, p => p.temp);
-  setText("hist-temp-badge", tempAvg !== null ? `avg ${tempAvg.toFixed(0)}°C` : "sem dados");
+  // CPU Power (filter zeroes — no data points)
+  const tempPts = pts.filter(p => p.power_w > 0);
+  const tempAvg = avg(tempPts, p => p.power_w);
+  setText("hist-temp-badge", tempAvg !== null ? `avg ${tempAvg.toFixed(1)} W` : "sem dados");
   drawHistoryChart(
     document.getElementById("hist-temp-chart"),
-    tempPts, p => p.temp, "#e67e22", "rgba(230,126,34,0.18)"
+    tempPts, p => p.power_w, "#e67e22", "rgba(230,126,34,0.18)"
   );
   setHistAxis("hist-temp-axis", pts, period);
 

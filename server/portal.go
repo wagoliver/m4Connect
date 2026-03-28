@@ -73,7 +73,7 @@ type Stats struct {
 	LoadAvg5     float64  `json:"load_avg_5"`
 	ProcessCount int      `json:"process_count"`
 	ThreadCount  int      `json:"thread_count"`
-	Temperature  *float64 `json:"temperature"`
+	PowerW       *float64 `json:"power_w"`
 
 	// Memory (GB)
 	RAMUsedGB   float64 `json:"ram_used_gb"`
@@ -182,29 +182,30 @@ func getProcessStats() (procs, threads int) {
 	return
 }
 
-// ── Temperature poller (cached, runs async) ───────────────────────────────────
+// ── CPU Power poller (cached, runs async) ────────────────────────────────────
 
 var (
-	cachedTemp      *float64
-	cachedTempMu    sync.RWMutex
-	tempPollerOnce  sync.Once
+	cachedPower     *float64
+	cachedPowerMu   sync.RWMutex
+	powerPollerOnce sync.Once
 )
 
-func startTempPoller() {
-	tempPollerOnce.Do(func() {
+func startPowerPoller() {
+	powerPollerOnce.Do(func() {
 		poll := func() {
-			out, err := exec.Command("powermetrics", "--samplers", "smc", "-n", "1", "-i", "1").Output()
+			out, err := exec.Command("powermetrics", "--samplers", "cpu_power", "-n", "1", "-i", "1").Output()
 			if err != nil {
-				log.Printf("[temp] powermetrics error: %v", err)
+				log.Printf("[power] powermetrics error: %v", err)
 				return
 			}
-			re := regexp.MustCompile(`(?i)CPU (?:P-cluster |E-cluster )?Die Temperature:\s*([\d.]+)`)
+			re := regexp.MustCompile(`CPU Power:\s*(\d+)\s*mW`)
 			if m := re.FindSubmatch(out); m != nil {
-				var t float64
-				fmt.Sscanf(string(m[1]), "%f", &t)
-				cachedTempMu.Lock()
-				cachedTemp = &t
-				cachedTempMu.Unlock()
+				var mw float64
+				fmt.Sscanf(string(m[1]), "%f", &mw)
+				w := mw / 1000.0
+				cachedPowerMu.Lock()
+				cachedPower = &w
+				cachedPowerMu.Unlock()
 			}
 		}
 		go func() {
@@ -216,10 +217,10 @@ func startTempPoller() {
 	})
 }
 
-func getCachedTemp() *float64 {
-	cachedTempMu.RLock()
-	defer cachedTempMu.RUnlock()
-	return cachedTemp
+func getCachedPower() *float64 {
+	cachedPowerMu.RLock()
+	defer cachedPowerMu.RUnlock()
+	return cachedPower
 }
 
 // ── Rate tracker ──────────────────────────────────────────────────────────────
@@ -349,7 +350,7 @@ func collectStats(rt *rateTracker, bindIP string) Stats {
 		LoadAvg5:     la5,
 		ProcessCount: procs,
 		ThreadCount:  threads,
-		Temperature:  getCachedTemp(),
+		PowerW:       getCachedPower(),
 
 		RAMUsedGB:   ramUsed,
 		RAMTotalGB:  ramTotal,

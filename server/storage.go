@@ -17,7 +17,7 @@ type StatPoint struct {
 	RecordedAt   int64   `json:"t"`
 	CPUPercent   float64 `json:"cpu"`
 	RAMPercent   float64 `json:"ram"`
-	Temperature  float64 `json:"temp"`
+	PowerW       float64 `json:"power_w"`
 	NetRxBPS     float64 `json:"rx"`
 	NetTxBPS     float64 `json:"tx"`
 	DiskReadBPS  float64 `json:"dr"`
@@ -56,7 +56,7 @@ func openStorage() (*Storage, error) {
 			recorded_at  INTEGER NOT NULL,
 			cpu_percent  REAL    NOT NULL DEFAULT 0,
 			ram_percent  REAL    NOT NULL DEFAULT 0,
-			temperature  REAL    NOT NULL DEFAULT 0,
+			power_w      REAL    NOT NULL DEFAULT 0,
 			net_rx_bps   REAL    NOT NULL DEFAULT 0,
 			net_tx_bps   REAL    NOT NULL DEFAULT 0,
 			disk_rd_bps  REAL    NOT NULL DEFAULT 0,
@@ -82,7 +82,7 @@ func (s *Storage) Close() {
 
 // runCollector collects one stat point per minute, continuously.
 func (s *Storage) runCollector() {
-	startTempPoller()
+	startPowerPoller()
 	rt := newRateTracker()
 	// Prime the rate tracker
 	collectStats(rt, "")
@@ -91,18 +91,18 @@ func (s *Storage) runCollector() {
 	defer ticker.Stop()
 	for range ticker.C {
 		st := collectStats(rt, "")
-		var temp float64
-		if st.Temperature != nil {
-			temp = *st.Temperature
+		var powerW float64
+		if st.PowerW != nil {
+			powerW = *st.PowerW
 		}
 		if _, err := s.db.Exec(
 			`INSERT INTO stats
-			 (recorded_at, cpu_percent, ram_percent, temperature, net_rx_bps, net_tx_bps, disk_rd_bps, disk_wr_bps)
+			 (recorded_at, cpu_percent, ram_percent, power_w, net_rx_bps, net_tx_bps, disk_rd_bps, disk_wr_bps)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			time.Now().Unix(),
 			st.CPUPercent,
 			st.RAMPercent,
-			temp,
+			powerW,
 			st.NetRxBPS,
 			st.NetTxBPS,
 			st.DiskReadBPS,
@@ -157,7 +157,7 @@ func (s *Storage) QueryHistory(period string) HistoryResponse {
 			(recorded_at / ?) * ? AS bucket,
 			AVG(cpu_percent),
 			AVG(ram_percent),
-			AVG(temperature),
+			AVG(power_w),
 			AVG(net_rx_bps),
 			AVG(net_tx_bps),
 			AVG(disk_rd_bps),
@@ -180,7 +180,7 @@ func (s *Storage) QueryHistory(period string) HistoryResponse {
 			&p.RecordedAt,
 			&p.CPUPercent,
 			&p.RAMPercent,
-			&p.Temperature,
+			&p.PowerW,
 			&p.NetRxBPS,
 			&p.NetTxBPS,
 			&p.DiskReadBPS,
