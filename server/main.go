@@ -10,7 +10,18 @@ import (
 	"time"
 )
 
+// Preenchido em build time via -ldflags.
+var (
+	Version   = "dev"
+	BuildHash = "unknown"
+)
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Printf("m4server %s (%s)\n", Version, BuildHash)
+		os.Exit(0)
+	}
+
 	logDir := "/Library/Logs/M4Server"
 	os.MkdirAll(logDir, 0755)
 	logFile, err := os.OpenFile(
@@ -33,9 +44,10 @@ func main() {
 	}
 	defer store.Close()
 
-	log.Println("M4Server daemon started")
+	log.Printf("M4Server %s (%s) started", Version, BuildHash)
 	fmt.Printf("\n╔══════════════════════════════════════╗\n")
 	fmt.Printf("║         M4Server — Online            ║\n")
+	fmt.Printf("║  %-36s║\n", fmt.Sprintf("v%s · build %s", Version, BuildHash))
 	fmt.Printf("╚══════════════════════════════════════╝\n\n")
 
 	wifi := getWiFiInterfaces()

@@ -427,6 +427,14 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage) {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": DisableSSH()})
 	})
 
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"version": Version,
+			"build":   BuildHash,
+		})
+	})
+
 	mux.HandleFunc("/api/history", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if store == nil {

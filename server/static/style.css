@@ -433,6 +433,15 @@ html,body{
 }
 .btn-sm:hover{background:rgba(255,255,255,.1);color:var(--text)}
 
+/* ── Sidebar version ── */
+.sb-version{
+  padding:0 16px;
+  font-size:9.5px;
+  color:var(--text3);
+  font-family:var(--mono);
+  letter-spacing:.03em;
+}
+
 /* ── History page ── */
 .hist-page{
   display:flex;flex-direction:column;gap:10px;

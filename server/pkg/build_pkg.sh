@@ -11,10 +11,13 @@ PAYLOAD_DIR="$BUILD_DIR/payload/usr/local/m4server"
 SCRIPTS_DIR="$BUILD_DIR/scripts"
 OUTPUT="$SCRIPT_DIR/M4Server.pkg"
 
-echo "==> Compilando binário Go..."
+VERSION="1.1.0"
+HASH=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+echo "==> Compilando binário Go... (v${VERSION} · ${HASH})"
 cd "$PROJECT_DIR"
-go build -o "$PROJECT_DIR/m4server" .
-echo "    ✓ m4server compilado"
+go build -ldflags "-X main.Version=${VERSION} -X main.BuildHash=${HASH}" -o "$PROJECT_DIR/m4server" .
+echo "    ✓ m4server v${VERSION} (${HASH}) compilado"
 
 echo "==> Preparando payload..."
 rm -rf "$BUILD_DIR"

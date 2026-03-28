@@ -528,4 +528,9 @@ window.addEventListener("load", () => {
     .catch(() => {});
 
   loadHistory("1h");
+
+  fetch("/api/version")
+    .then(r => r.json())
+    .then(v => setText("sb-version", `v${v.version} · ${v.build}`))
+    .catch(() => {});
 });
