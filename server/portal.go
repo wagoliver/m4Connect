@@ -601,6 +601,12 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage, c
 		})
 	})
 
+	// ── Apps ──────────────────────────────────────────────────────────────────
+
+	mux.HandleFunc("GET /api/apps", handleListApps)
+	mux.HandleFunc("POST /api/apps/{id}/install", handleAppInstall)
+	mux.HandleFunc("POST /api/apps/{id}/uninstall", handleAppUninstall)
+
 	mux.HandleFunc("GET /api/rag/status", func(w http.ResponseWriter, r *http.Request) {
 		model := "nomic-embed-text"
 		var total, qlen int

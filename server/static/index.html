@@ -90,6 +90,15 @@
           </svg>
           Benchmark
         </a>
+        <a class="nav-item" data-page="apps">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="1" width="5" height="5" rx="1.2"/>
+            <rect x="8" y="1" width="5" height="5" rx="1.2"/>
+            <rect x="1" y="8" width="5" height="5" rx="1.2"/>
+            <rect x="8" y="8" width="5" height="5" rx="1.2"/>
+          </svg>
+          Apps
+        </a>
       </nav>
 
       <div style="flex:1"></div>
@@ -808,6 +817,48 @@
         </div>
       </div>
 
+      <!-- Apps -->
+      <div class="page" id="page-apps">
+        <div class="apps-wrap">
+          <div class="apps-header">
+            <div class="apps-header-left">
+              <div class="apps-header-icon">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="1" width="5" height="5" rx="1.2"/>
+                  <rect x="8" y="1" width="5" height="5" rx="1.2"/>
+                  <rect x="1" y="8" width="5" height="5" rx="1.2"/>
+                  <rect x="8" y="8" width="5" height="5" rx="1.2"/>
+                </svg>
+              </div>
+              <span class="apps-header-title">Apps &amp; Ferramentas</span>
+            </div>
+            <div class="apps-filter-row" id="apps-filter-row">
+              <button class="apps-filter-btn active" data-cat="all" onclick="appsFilter('all')">Todos</button>
+              <button class="apps-filter-btn" data-cat="ai" onclick="appsFilter('ai')">IA</button>
+              <button class="apps-filter-btn" data-cat="remote" onclick="appsFilter('remote')">Remote</button>
+              <button class="apps-filter-btn" data-cat="tools" onclick="appsFilter('tools')">Tools</button>
+            </div>
+          </div>
+          <div class="apps-grid" id="apps-grid">
+            <!-- cards injected by JS -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Install/Uninstall progress modal -->
+  <div class="apps-modal" id="apps-modal">
+    <div class="apps-modal-inner">
+      <div class="apps-modal-header">
+        <span class="apps-modal-title" id="apps-modal-title">Instalando…</span>
+        <div class="apps-modal-spinner" id="apps-modal-spinner"></div>
+      </div>
+      <div class="apps-terminal" id="apps-terminal"></div>
+      <div class="apps-modal-footer">
+        <button class="apps-modal-close btn-sm" id="apps-modal-close" onclick="appsCloseModal()">Fechar</button>
+      </div>
     </div>
   </div>
 

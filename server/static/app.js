@@ -28,6 +28,7 @@ document.querySelectorAll(".nav-item").forEach(item => {
     if (page === "history")    setTimeout(() => loadHistory(currentPeriod), 30);
     if (page === "llm")        startLLMPolling();
     if (page === "inference")  initInference();
+    if (page === "apps")       initApps();
   });
 });
 
@@ -1355,6 +1356,174 @@ async function runBenchmark() {
   benchRunning = false;
   btn.disabled = false;
   btn.textContent = "Repetir Teste";
+}
+
+// ── Apps page ─────────────────────────────────────────────────────────────────
+
+let appsData        = [];   // full list from /api/apps
+let appsActiveCat   = "all";
+let appsModalES     = null; // active EventSource for streaming
+
+// App icon definitions: [bg gradient, text/symbol, text color]
+const APP_ICONS = {
+  "ollama":     ["#1a2e1f,#0f2318", "🦙", null],
+  "open-webui": ["#1a2430,#0f1e2d", "⊙", "#4a90d9"],
+  "lm-studio":  ["#1e1a2e,#150f23", "◈", "#9b59b6"],
+  "jan":        ["#1e1a2e,#150f23", "Jn", "#a78bfa"],
+  "gpt4all":    ["#1a2e1f,#0f2318", "G4", "#30d158"],
+  "localai":    ["#1e2a1a,#122010", "AI", "#56d668"],
+  "tailscale":  ["#15202b,#0d1820", "Ts", "#2563eb"],
+  "rustdesk":   ["#2b1515,#1f0d0d", "Rd", "#ef4444"],
+  "zerotier":   ["#15202b,#0d1820", "ZT", "#3b82f6"],
+  "docker":     ["#122035,#0a1828", "🐳", null],
+  "vscode":     ["#1a2030,#101828", "⌨", "#4a90d9"],
+  "iterm2":     ["#1e1e1e,#141414", ">_", "#a0a0a0"],
+};
+
+function appIconHTML(id) {
+  const def = APP_ICONS[id] || ["#1e1e1e,#141414", "?", "#888"];
+  const [grad, sym, color] = def;
+  const style = `background:linear-gradient(135deg,${grad});`;
+  const tStyle = color ? `color:${color};` : "color:#fff;";
+  const isEmoji = /\p{Emoji}/u.test(sym);
+  const inner = isEmoji
+    ? `<span style="font-size:20px;line-height:1">${sym}</span>`
+    : `<span style="font-size:14px;font-weight:700;${tStyle}font-family:var(--mono)">${sym}</span>`;
+  return `<div class="app-card-icon" style="${style}">${inner}</div>`;
+}
+
+function appCatLabel(cat) {
+  return { ai: "IA", remote: "Remote", tools: "Tools" }[cat] || cat;
+}
+
+function initApps() {
+  loadApps();
+}
+
+async function loadApps() {
+  try {
+    appsData = await fetch("/api/apps").then(r => r.json());
+    renderApps();
+  } catch(e) {
+    document.getElementById("apps-grid").innerHTML =
+      '<div style="color:var(--text2);padding:20px;grid-column:1/-1">Erro ao carregar apps.</div>';
+  }
+}
+
+function appsFilter(cat) {
+  appsActiveCat = cat;
+  document.querySelectorAll(".apps-filter-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.cat === cat);
+  });
+  renderApps();
+}
+
+function renderApps() {
+  const grid = document.getElementById("apps-grid");
+  if (!grid) return;
+
+  const visible = appsActiveCat === "all"
+    ? appsData
+    : appsData.filter(a => a.category === appsActiveCat);
+
+  grid.innerHTML = visible.map(app => {
+    const statusDot = app.running
+      ? '<span class="app-status-dot running"></span><span>Running</span>'
+      : app.installed
+        ? '<span class="app-status-dot installed"></span><span>Instalado</span>'
+        : '<span class="app-status-dot"></span><span>–</span>';
+
+    const btnLabel = app.installed ? "Remover" : "Instalar";
+    const btnClass = "app-card-btn" + (app.installed ? " uninstall" : "");
+    const btnFn    = app.installed
+      ? `appsUninstall('${app.id}','${infEscape(app.name)}')`
+      : `appsInstall('${app.id}','${infEscape(app.name)}')`;
+
+    return `
+      <div class="app-card" id="app-card-${app.id}">
+        <div class="app-card-top">
+          ${appIconHTML(app.id)}
+          <div class="app-card-meta">
+            <div class="app-card-name">${infEscape(app.name)}</div>
+            <span class="app-card-cat ${app.category}">${appCatLabel(app.category)}</span>
+          </div>
+        </div>
+        <div class="app-card-desc">${infEscape(app.desc)}</div>
+        <div class="app-card-footer">
+          <div class="app-status-pill">${statusDot}</div>
+          <button class="${btnClass}" onclick="${btnFn}">${btnLabel}</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+let appsModalActive = false;
+
+function appsOpenModal(title) {
+  const modal = document.getElementById("apps-modal");
+  const term  = document.getElementById("apps-terminal");
+  const spin  = document.getElementById("apps-modal-spinner");
+  const close = document.getElementById("apps-modal-close");
+  document.getElementById("apps-modal-title").textContent = title;
+  term.innerHTML = "";
+  modal.classList.add("open");
+  spin.classList.add("active");
+  close.disabled = true;
+  appsModalActive = true;
+}
+
+function appsCloseModal() {
+  if (appsModalES) { appsModalES.close(); appsModalES = null; }
+  document.getElementById("apps-modal").classList.remove("open");
+  document.getElementById("apps-modal-spinner").classList.remove("active");
+  appsModalActive = false;
+  loadApps(); // refresh status
+}
+
+function appsTermLine(text, cls) {
+  const term = document.getElementById("apps-terminal");
+  const line = document.createElement("div");
+  line.className = "apps-terminal-line" + (cls ? " " + cls : "");
+  line.textContent = text;
+  term.appendChild(line);
+  term.scrollTop = term.scrollHeight;
+}
+
+function appsStreamSSE(url, actionLabel) {
+  const es = new EventSource(url);
+  appsModalES = es;
+
+  es.addEventListener("output", e => {
+    try { appsTermLine(JSON.parse(e.data).line); } catch(_) {}
+  });
+
+  es.addEventListener("done", e => {
+    es.close();
+    appsModalES = null;
+    const ok = JSON.parse(e.data).ok;
+    appsTermLine(ok ? `✓ ${actionLabel} concluído.` : `✗ ${actionLabel} falhou.`, ok ? "success" : "error");
+    document.getElementById("apps-modal-spinner").classList.remove("active");
+    document.getElementById("apps-modal-close").disabled = false;
+    loadApps();
+  });
+
+  es.onerror = () => {
+    es.close();
+    appsModalES = null;
+    appsTermLine("Erro de conexão com o servidor.", "error");
+    document.getElementById("apps-modal-spinner").classList.remove("active");
+    document.getElementById("apps-modal-close").disabled = false;
+  };
+}
+
+function appsInstall(id, name) {
+  appsOpenModal(`Instalando ${name}…`);
+  appsStreamSSE(`/api/apps/${id}/install`, `Instalação de ${name}`);
+}
+
+function appsUninstall(id, name) {
+  appsOpenModal(`Removendo ${name}…`);
+  appsStreamSSE(`/api/apps/${id}/uninstall`, `Remoção de ${name}`);
 }
 
 // ── LLM page ──────────────────────────────────────────────────────────────────
