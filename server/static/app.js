@@ -23,9 +23,10 @@ document.querySelectorAll(".nav-item").forEach(item => {
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     item.classList.add("active");
     document.getElementById(`page-${page}`).classList.add("active");
+    if (page !== "llm") stopLLMPolling();
     if (page === "dashboard") redrawCharts();
     if (page === "history")   setTimeout(() => loadHistory(currentPeriod), 30);
-    if (page === "llm")       loadLLM();
+    if (page === "llm")       startLLMPolling();
   });
 });
 
@@ -540,6 +541,15 @@ window.addEventListener("load", () => {
 
 let llmTimer = null;
 
+function startLLMPolling() {
+  loadLLM();
+  if (!llmTimer) llmTimer = setInterval(loadLLM, 5000);
+}
+
+function stopLLMPolling() {
+  if (llmTimer) { clearInterval(llmTimer); llmTimer = null; }
+}
+
 function loadLLM() {
   fetch("/api/ollama")
     .then(r => r.json())
@@ -556,6 +566,7 @@ function renderLLMOffline() {
 }
 
 function renderLLM(d) {
+  if (!d) { renderLLMOffline(); return; }
   const offlineEl = document.getElementById("llm-offline-wrap");
   const topGrid   = document.getElementById("llm-top-grid");
   const modCard   = document.getElementById("llm-models-card");
