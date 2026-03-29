@@ -1755,10 +1755,11 @@ function familyIcon(family) {
 
 // ── Web Terminal ──────────────────────────────────────────────────────────────
 
-let termInstance  = null;
-let termFitAddon  = null;
-let termWS        = null;
-let termResizeObs = null;
+let termInstance   = null;
+let termFitAddon   = null;
+let termWS         = null;
+let termResizeObs  = null;
+let termDataDispose = null;
 
 function openTerminal() {
   const overlay = document.getElementById("term-overlay");
@@ -1813,7 +1814,8 @@ function termConnectWS() {
   };
   termWS.onerror = () => { addLog("Terminal WebSocket erro", "error"); };
 
-  termInstance.onData(data => {
+  if (termDataDispose) { termDataDispose.dispose(); termDataDispose = null; }
+  termDataDispose = termInstance.onData(data => {
     if (termWS && termWS.readyState === WebSocket.OPEN) {
       termWS.send(new TextEncoder().encode(data));
     }
