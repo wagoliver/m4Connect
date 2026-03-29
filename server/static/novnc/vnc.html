@@ -12,12 +12,13 @@
     #pwd-overlay.visible{display:flex}
     #pwd-box{background:#111213;border:1px solid #1e1f21;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:12px;min-width:260px}
     #pwd-box label{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;color:#8e8e93}
+    #pwd-error{font-size:11px;color:#ff453a;display:none}
     #pwd-input{background:#0a0a0b;border:1px solid #1e1f21;border-radius:7px;padding:8px 10px;color:#e8e8ea;font-size:13px;font-family:"SF Mono",monospace;outline:none;width:100%}
     #pwd-input:focus{border-color:#4a90d9}
     #pwd-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#8e8e93;font-size:11.5px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:background .15s,color .15s}
     #pwd-btn:hover{background:rgba(255,255,255,.12);color:#e8e8ea}
     #status{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-family:"SF Mono",monospace;font-size:11px;color:#8e8e93;background:rgba(13,13,14,.85);border:1px solid #1e1f21;border-radius:6px;padding:4px 10px;pointer-events:none;white-space:nowrap}
-    #log-panel{position:fixed;top:8px;left:8px;right:8px;max-height:160px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
+    #log-panel{position:fixed;top:8px;left:8px;right:8px;max-height:140px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
     #log-panel .ok{color:#30d158}
     #log-panel .err{color:#ff453a}
     #log-panel .info{color:#4a90d9}
@@ -29,6 +30,7 @@
   <div id="pwd-overlay">
     <div id="pwd-box">
       <label>Senha VNC</label>
+      <div id="pwd-error"></div>
       <input id="pwd-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
       <button id="pwd-btn">Conectar</button>
     </div>
@@ -40,12 +42,13 @@
   <script type="module">
     import RFB from './core/rfb.js';
 
-    const screen   = document.getElementById('screen');
-    const status   = document.getElementById('status');
-    const overlay  = document.getElementById('pwd-overlay');
-    const pwdInput = document.getElementById('pwd-input');
-    const pwdBtn   = document.getElementById('pwd-btn');
-    const logPanel = document.getElementById('log-panel');
+    const screen    = document.getElementById('screen');
+    const status    = document.getElementById('status');
+    const overlay   = document.getElementById('pwd-overlay');
+    const pwdInput  = document.getElementById('pwd-input');
+    const pwdBtn    = document.getElementById('pwd-btn');
+    const pwdError  = document.getElementById('pwd-error');
+    const logPanel  = document.getElementById('log-panel');
 
     function log(msg, type = 'info') {
       const t = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -58,52 +61,73 @@
 
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const wsURL = `${proto}://${location.host}/ws/vnc`;
-    log(`Conectando a ${wsURL}`);
 
     let rfb = null;
+    let pendingPassword = null;
 
     function connect() {
+      if (rfb) {
+        try { rfb.disconnect(); } catch(e) {}
+        rfb = null;
+      }
+
+      log(`Conectando a ${wsURL}...`);
+      status.textContent = 'Conectando…';
+
       try {
-        log('Criando RFB...');
         rfb = new RFB(screen, wsURL);
         rfb.scaleViewport = true;
         rfb.resizeSession = false;
-        log('RFB criado, aguardando eventos...');
 
         rfb.addEventListener('connect', () => {
           status.textContent = 'Conectado';
-          log('Conectado com sucesso!', 'ok');
+          log('Conectado!', 'ok');
+          overlay.classList.remove('visible');
         });
 
         rfb.addEventListener('disconnect', (e) => {
-          const msg = e.detail.clean ? 'Desconectado (limpo)' : 'Conexão encerrada (erro)';
+          const clean = e.detail.clean;
+          const reason = e.detail.reason || '';
+          const msg = clean ? 'Desconectado' : `Conexão encerrada${reason ? ': ' + reason : ''}`;
           status.textContent = msg;
-          log(msg + (e.detail.reason ? ': ' + e.detail.reason : ''), e.detail.clean ? 'info' : 'err');
+          log(msg, clean ? 'info' : 'err');
         });
 
         rfb.addEventListener('credentialsrequired', () => {
+          log('Servidor pediu senha', 'info');
           status.textContent = 'Aguardando senha…';
-          log('Servidor pediu credenciais', 'info');
+          pwdError.style.display = 'none';
           overlay.classList.add('visible');
           pwdInput.focus();
         });
 
         rfb.addEventListener('securityfailure', (e) => {
+          const reason = e.detail?.reason || 'senha incorreta';
+          log('Falha de auth: ' + JSON.stringify(e.detail), 'err');
           status.textContent = 'Falha de autenticação';
-          log('Falha de autenticação: ' + JSON.stringify(e.detail), 'err');
-          overlay.classList.add('visible');
+          pwdError.textContent = 'Senha incorreta — tente novamente';
+          pwdError.style.display = 'block';
+          // Reconecta para nova tentativa
+          setTimeout(() => connect(), 500);
         });
 
       } catch(err) {
-        log('Erro ao criar RFB: ' + err.message, 'err');
+        log('Erro: ' + err.message, 'err');
         status.textContent = 'Erro: ' + err.message;
       }
     }
 
     function sendPassword() {
+      const pwd = pwdInput.value;
+      if (!pwd) return;
       overlay.classList.remove('visible');
-      log('Enviando senha...');
-      if (rfb) rfb.sendCredentials({ password: pwdInput.value });
+      log(`Enviando senha (${pwd.length} chars)...`);
+      if (rfb) {
+        rfb.sendCredentials({ password: pwd });
+      } else {
+        log('rfb não existe, reconectando...', 'err');
+        connect();
+      }
       pwdInput.value = '';
     }
 
