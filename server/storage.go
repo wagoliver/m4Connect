@@ -68,6 +68,9 @@ func openStorage() (*Storage, error) {
 		return nil, err
 	}
 
+	// Migration: add power_w column if missing (safe to re-run — ignored if already exists)
+	db.Exec(`ALTER TABLE stats ADD COLUMN power_w REAL NOT NULL DEFAULT 0`)
+
 	s := &Storage{db: db}
 	go s.runCollector()
 	go s.runCleaner()
