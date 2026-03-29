@@ -117,7 +117,8 @@
           </div>
         </div>
 
-      </div>
+      <!-- Reconectar button (shown after disconnect) -->
+      <button class="cc-btn-reconnect hidden" id="btn-reconnect" onclick="doReconnectSaved()">Reconectar</button>
 
       <!-- Connected card -->
       <div class="cc-card hidden" id="state-connected">
@@ -192,9 +193,8 @@
 
         <div class="cc-sep"></div>
 
-        <!-- Disconnect / Reconectar -->
-        <button class="cc-btn-disconnect" id="btn-disconnect" onclick="doDisconnect()">Disconnect</button>
-        <button class="cc-btn-reconnect hidden" id="btn-reconnect" onclick="doReconnectSaved()">Reconectar</button>
+        <!-- Disconnect -->
+        <button class="cc-btn-disconnect" onclick="doDisconnect()">Disconnect</button>
 
         <div class="cc-sep"></div>
 

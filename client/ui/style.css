@@ -300,12 +300,13 @@ html, body {
   padding-bottom: 10px;
 }
 
-/* Reconnect button (shown after disconnect) */
+/* Reconnect button (shown in progress panel after disconnect) */
 .cc-btn-reconnect {
-  width: 100%;
+  width: calc(100% - 32px);
+  margin: 4px 16px 0;
   padding: 9px 14px;
   background: rgba(48,209,88,.08);
-  border: 1px solid rgba(48,209,88,.18);
+  border: 1px solid rgba(48,209,88,.2);
   color: var(--green);
   font-size: 12px;
   font-weight: 500;
@@ -317,7 +318,7 @@ html, body {
 }
 .cc-btn-reconnect:hover {
   background: rgba(48,209,88,.14);
-  border-color: rgba(48,209,88,.28);
+  border-color: rgba(48,209,88,.3);
 }
 
 /* Step icons */
