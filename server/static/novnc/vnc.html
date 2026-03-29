@@ -76,11 +76,13 @@
           status.textContent = 'Conectado';
           log('Conectado!', 'ok');
           overlay.classList.remove('visible');
+          setTimeout(() => { logPanel.style.display = 'none'; }, 2000);
         });
 
         rfb.addEventListener('disconnect', (e) => {
           const msg = e.detail.clean ? 'Desconectado' : `Conexão encerrada${e.detail.reason ? ': ' + e.detail.reason : ''}`;
           status.textContent = msg;
+          logPanel.style.display = 'block';
           log(msg, e.detail.clean ? 'info' : 'err');
         });
 
