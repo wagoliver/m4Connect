@@ -290,6 +290,7 @@ function updateStats(data) {
   if (data.hostname) {
     setText("uptime-hostname", data.hostname);
     setText("sb-hostname", data.hostname);
+    setText("svc-hostname", data.hostname);
   }
   if (data.chip_info) setText("sb-chip", data.chip_info);
 
@@ -306,6 +307,8 @@ function updateServiceUI(svc) {
     const on  = svc[name] === true;
     const chk = document.getElementById(`svc-${name}`);
     if (chk) chk.checked = on;
+    const dot = document.getElementById(`svc-dot-${name}`);
+    if (dot) dot.classList.toggle("active", on);
   });
 }
 
@@ -1824,7 +1827,21 @@ function termSendResize() {
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
-    const overlay = document.getElementById("term-overlay");
-    if (overlay?.classList.contains("open")) closeTerminal();
+    if (document.getElementById("term-overlay")?.classList.contains("open")) closeTerminal();
+    if (document.getElementById("vnc-overlay")?.classList.contains("open")) closeVNC();
   }
 });
+
+// ── VNC Overlay ───────────────────────────────────────────────────────────────
+function openVNC() {
+  const overlay = document.getElementById("vnc-overlay");
+  const iframe  = document.getElementById("vnc-iframe");
+  overlay.classList.add("open");
+  if (!iframe.src || iframe.src === window.location.href) {
+    iframe.src = "/static/novnc/vnc.html";
+  }
+}
+function closeVNC() {
+  document.getElementById("vnc-overlay").classList.remove("open");
+  document.getElementById("vnc-iframe").src = "";
+}

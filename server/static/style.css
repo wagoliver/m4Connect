@@ -412,24 +412,27 @@ html,body{
 .uptime-bars-outer{height:26px;flex-shrink:0;margin-top:auto}
 
 /* ── Services page ── */
-.services-grid{
-  display:flex;flex-direction:column;gap:10px;padding:16px;
-}
-.svc-card{
-  display:flex;align-items:center;gap:14px;
-  background:var(--card);border:1px solid var(--card-border);
-  border-radius:var(--radius);padding:14px 18px;
-}
-.svc-icon{
-  width:40px;height:40px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:700;letter-spacing:.05em;flex-shrink:0;
-}
-.vnc-icon{background:rgba(74,144,217,.15);color:var(--blue)}
-.ssh-icon{background:rgba(48,209,88,.15);color:var(--green)}
-.svc-info{flex:1}
-.svc-name{font-weight:600;font-size:13px;margin-bottom:2px}
+.services-wrap{display:flex;flex-direction:column;gap:0;padding:20px;overflow-y:auto;flex:1;min-height:0}
+.device-header{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px}
+.device-img{width:72px;height:auto;object-fit:contain;border-radius:10px;flex-shrink:0;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5));user-select:none;-webkit-user-drag:none}
+.device-meta{display:flex;flex-direction:column;gap:4px}
+.device-name{font-weight:700;font-size:16px;color:var(--text);letter-spacing:-.01em}
+.device-sub{font-size:11.5px;color:var(--text2)}
+.services-grid{display:flex;flex-direction:column;gap:10px}
+.svc-card{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:18px 20px;transition:border-color .15s}
+.svc-card:hover{border-color:rgba(255,255,255,.12)}
+.svc-icon-wrap{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vnc-icon-wrap{background:rgba(74,144,217,.14);color:var(--blue)}
+.ssh-icon-wrap{background:rgba(48,209,88,.14);color:var(--green)}
+.svc-info{flex:1;min-width:0}
+.svc-name-row{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.svc-name{font-weight:600;font-size:13.5px}
+.svc-status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background .3s,box-shadow .3s}
+.svc-status-dot.active{background:var(--green);box-shadow:0 0 5px var(--green)}
 .svc-desc{font-size:11.5px;color:var(--text2)}
+.svc-actions{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.svc-connect-btn{background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.1);color:var(--text2);font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:var(--font);transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+.svc-connect-btn:hover{background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.07));border-color:rgba(255,255,255,.18);color:var(--text)}
 .toggle{position:relative;display:inline-block;width:40px;height:24px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0}
 .toggle-slider{position:absolute;inset:0;background:var(--text3);border-radius:12px;cursor:pointer;transition:background .2s}
@@ -1355,3 +1358,11 @@ html,body{
 .term-body{flex:1;min-height:0;padding:8px;background:#0a0a0b}
 .term-body .xterm{height:100%}
 .term-body .xterm-viewport{overflow-y:hidden!important}
+
+/* ── VNC Overlay ── */
+.vnc-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);align-items:center;justify-content:center}
+.vnc-overlay.open{display:flex}
+.vnc-panel{width:96vw;height:92vh;background:#0d0d0e;border:1px solid var(--card-border);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 64px rgba(0,0,0,.75)}
+.vnc-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.vnc-body{flex:1;min-height:0;background:#000;display:flex;align-items:stretch}
+.vnc-body iframe{width:100%;height:100%;border:none;display:block}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VNC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;background:#0d0d0e;overflow:hidden}
+    #screen{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+    #pwd-overlay{display:none;position:fixed;inset:0;z-index:10;background:rgba(8,8,8,.92);align-items:center;justify-content:center}
+    #pwd-overlay.visible{display:flex}
+    #pwd-box{background:#111213;border:1px solid #1e1f21;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:12px;min-width:260px}
+    #pwd-box label{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;color:#8e8e93}
+    #pwd-input{background:#0a0a0b;border:1px solid #1e1f21;border-radius:7px;padding:8px 10px;color:#e8e8ea;font-size:13px;font-family:"SF Mono",monospace;outline:none;width:100%}
+    #pwd-input:focus{border-color:#4a90d9}
+    #pwd-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#8e8e93;font-size:11.5px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:background .15s,color .15s}
+    #pwd-btn:hover{background:rgba(255,255,255,.12);color:#e8e8ea}
+    #status{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-family:"SF Mono",monospace;font-size:11px;color:#8e8e93;background:rgba(13,13,14,.85);border:1px solid #1e1f21;border-radius:6px;padding:4px 10px;pointer-events:none;white-space:nowrap}
+  </style>
+</head>
+<body>
+  <div id="screen"></div>
+
+  <div id="pwd-overlay">
+    <div id="pwd-box">
+      <label>Senha VNC</label>
+      <input id="pwd-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
+      <button id="pwd-btn">Conectar</button>
+    </div>
+  </div>
+
+  <div id="status">Conectando…</div>
+
+  <script type="module">
+    import RFB from './core/rfb.js';
+
+    const screen   = document.getElementById('screen');
+    const status   = document.getElementById('status');
+    const overlay  = document.getElementById('pwd-overlay');
+    const pwdInput = document.getElementById('pwd-input');
+    const pwdBtn   = document.getElementById('pwd-btn');
+
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsURL = `${proto}://${location.host}/ws/vnc`;
+
+    let rfb = null;
+
+    function connect() {
+      rfb = new RFB(screen, wsURL);
+      rfb.scaleViewport = true;
+      rfb.resizeSession = false;
+      rfb.addEventListener('connect',             ()  => { status.textContent = 'Conectado'; });
+      rfb.addEventListener('disconnect',          (e) => { status.textContent = e.detail.clean ? 'Desconectado' : 'Conexão encerrada'; });
+      rfb.addEventListener('credentialsrequired', ()  => { overlay.classList.add('visible'); pwdInput.focus(); });
+      rfb.addEventListener('securityfailure',     ()  => { status.textContent = 'Falha de autenticação'; overlay.classList.add('visible'); });
+    }
+
+    function sendPassword() {
+      overlay.classList.remove('visible');
+      if (rfb) rfb.sendCredentials({ password: pwdInput.value });
+      pwdInput.value = '';
+    }
+
+    pwdBtn.addEventListener('click', sendPassword);
+    pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPassword(); });
+
+    connect();
+  </script>
+</body>
+</html>
