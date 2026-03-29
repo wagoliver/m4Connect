@@ -295,6 +295,7 @@
               <div class="svc-name">SSH</div>
               <div class="svc-desc">Shell remoto seguro · porta 22</div>
             </div>
+            <button class="btn-sm svc-term-btn" onclick="openTerminal()">Terminal</button>
             <label class="toggle">
               <input type="checkbox" id="svc-ssh" onchange="toggleService('ssh', this.checked)"/>
               <span class="toggle-slider"></span>
@@ -848,6 +849,17 @@
     </div>
   </div>
 
+  <!-- Web Terminal overlay -->
+  <div class="term-overlay" id="term-overlay">
+    <div class="term-panel">
+      <div class="term-header">
+        <span class="term-title"><span class="term-dot"></span>Terminal — Mac Mini M4</span>
+        <button class="btn-sm" onclick="closeTerminal()">✕ Fechar</button>
+      </div>
+      <div class="term-body" id="term-body"></div>
+    </div>
+  </div>
+
   <!-- Install/Uninstall progress modal -->
   <div class="apps-modal" id="apps-modal">
     <div class="apps-modal-inner">
@@ -862,6 +874,9 @@
     </div>
   </div>
 
+  <link rel="stylesheet" href="/static/js/xterm.min.css"/>
+  <script src="/static/js/xterm.min.js"></script>
+  <script src="/static/js/xterm-addon-fit.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

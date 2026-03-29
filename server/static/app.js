@@ -1749,3 +1749,82 @@ function familyIcon(family) {
     <path d="M8 12h8M8 8.5h8M8 15.5h5" stroke="var(--text3)" stroke-width="1.3" stroke-linecap="round"/>
   </svg>`;
 }
+
+// ── Web Terminal ──────────────────────────────────────────────────────────────
+
+let termInstance  = null;
+let termFitAddon  = null;
+let termWS        = null;
+let termResizeObs = null;
+
+function openTerminal() {
+  const overlay = document.getElementById("term-overlay");
+  overlay.classList.add("open");
+
+  if (!termInstance) {
+    termInstance = new Terminal({
+      cursorBlink: true,
+      fontFamily:  '"SF Mono","Cascadia Code","Consolas",monospace',
+      fontSize:    13,
+      theme: {
+        background:  "#0a0a0b",
+        foreground:  "#e8e8ea",
+        cursor:      "#30d158",
+        black:       "#1e1f21",
+        brightBlack: "#3a3a3c",
+      },
+    });
+    termFitAddon = new FitAddon.FitAddon();
+    termInstance.loadAddon(termFitAddon);
+    termInstance.open(document.getElementById("term-body"));
+  }
+
+  termConnectWS();
+
+  requestAnimationFrame(() => { termFitAddon.fit(); termSendResize(); });
+
+  if (!termResizeObs) {
+    termResizeObs = new ResizeObserver(() => {
+      if (overlay.classList.contains("open")) { termFitAddon.fit(); termSendResize(); }
+    });
+    termResizeObs.observe(document.getElementById("term-body"));
+  }
+}
+
+function closeTerminal() {
+  document.getElementById("term-overlay").classList.remove("open");
+  if (termWS) { termWS.close(); termWS = null; }
+}
+
+function termConnectWS() {
+  if (termWS && termWS.readyState === WebSocket.OPEN) return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  termWS = new WebSocket(`${proto}://${location.host}/ws/terminal`);
+  termWS.binaryType = "arraybuffer";
+
+  termWS.onopen = () => { termSendResize(); addLog("Terminal conectado", "ok"); };
+  termWS.onmessage = e => { termInstance.write(new Uint8Array(e.data)); };
+  termWS.onclose  = () => {
+    termInstance.write("\r\n\x1b[31m[conexão encerrada]\x1b[0m\r\n");
+    termWS = null;
+  };
+  termWS.onerror = () => { addLog("Terminal WebSocket erro", "error"); };
+
+  termInstance.onData(data => {
+    if (termWS && termWS.readyState === WebSocket.OPEN) {
+      termWS.send(new TextEncoder().encode(data));
+    }
+  });
+}
+
+function termSendResize() {
+  if (!termWS || termWS.readyState !== WebSocket.OPEN || !termInstance) return;
+  termWS.send(JSON.stringify({ type: "resize", cols: termInstance.cols, rows: termInstance.rows }));
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    const overlay = document.getElementById("term-overlay");
+    if (overlay?.classList.contains("open")) closeTerminal();
+  }
+});

@@ -1320,3 +1320,38 @@ html,body{
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:2px}
+
+/* ── Web Terminal ── */
+.svc-term-btn{margin-right:10px}
+
+.term-overlay{
+  display:none;position:fixed;inset:0;z-index:2000;
+  background:rgba(0,0,0,.82);align-items:center;justify-content:center;
+}
+.term-overlay.open{display:flex}
+
+.term-panel{
+  width:92vw;height:88vh;background:#0d0d0e;
+  border:1px solid var(--card-border);border-radius:14px;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 32px 64px rgba(0,0,0,.7);
+}
+
+.term-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--card-border);flex-shrink:0;
+}
+
+.term-title{
+  display:flex;align-items:center;gap:7px;
+  font-size:12px;font-weight:600;color:var(--text2);font-family:var(--mono);
+}
+
+.term-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 6px var(--green);
+}
+
+.term-body{flex:1;min-height:0;padding:8px;background:#0a0a0b}
+.term-body .xterm{height:100%}
+.term-body .xterm-viewport{overflow-y:hidden!important}
