@@ -154,6 +154,9 @@ function hideLostConnection() {
 async function doDisconnect() {
   if (_macWs)    { clearInterval(_macWs);    _macWs    = null; }
   if (_pingIntvl){ clearInterval(_pingIntvl);_pingIntvl = null; }
+  if (_portalUrl) {
+    await fetch(`${_portalUrl}/api/session/end`, { method: "POST" }).catch(() => {});
+  }
   await fetch("/api/disconnect", { method: "POST" }).catch(() => {});
   _portalUrl   = null;
   _hostnameUrl = null;

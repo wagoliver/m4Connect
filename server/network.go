@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -109,12 +110,16 @@ func waitForNewCable(wifi map[string]bool) string {
 	}
 }
 
-func waitForLinkLoss(iface string) {
+func waitForLinkLoss(ctx context.Context, iface string) {
 	for {
-		status, _ := getInterfaceStatus(iface)
-		if status != "active" {
+		select {
+		case <-ctx.Done():
 			return
+		case <-time.After(2 * time.Second):
+			status, _ := getInterfaceStatus(iface)
+			if status != "active" {
+				return
+			}
 		}
-		time.Sleep(2 * time.Second)
 	}
 }

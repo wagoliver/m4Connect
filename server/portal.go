@@ -382,7 +382,7 @@ func collectStats(rt *rateTracker, bindIP string) Stats {
 
 // ── Portal server ─────────────────────────────────────────────────────────────
 
-func startPortal(ctx context.Context, bindIP string, port int, store *Storage, convStore *ConvStore, embedQueue *EmbedQueue) {
+func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP string, port int, store *Storage, convStore *ConvStore, embedQueue *EmbedQueue) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("PANIC no portal: %v", r)
@@ -625,6 +625,12 @@ func startPortal(ctx context.Context, bindIP string, port int, store *Storage, c
 			"queue_len":        qlen,
 			"total_embeddings": total,
 		})
+	})
+
+	mux.HandleFunc("POST /api/session/end", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"ok":true}`))
+		go cancelSession()
 	})
 
 	mux.HandleFunc("/ws/terminal", handleTerminal)

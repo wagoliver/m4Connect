@@ -156,6 +156,22 @@ func sendHandshake(serverIP, clientIP, token string, port int, timeout time.Dura
 		return nil, err
 	}
 
+	// Retry sending every 2s in case Mac is still restarting
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.Write([]byte(msg))
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	buf := make([]byte, 512)
 	n, err := conn.Read(buf)
 	if err != nil {

@@ -154,9 +154,9 @@ func handleSession(cfg Config, iface string, store *Storage, convStore *ConvStor
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // desliga o portal quando o cabo for removido
 
-	go startPortal(ctx, macIP, cfg.PortalPort, store, convStore, embedQueue)
+	go startPortal(ctx, cancel, macIP, cfg.PortalPort, store, convStore, embedQueue)
 
 	log.Printf("Portal iniciado em http://%s:%d", macIP, cfg.PortalPort)
 	log.Println("Aguardando desconexão do cabo...")
-	waitForLinkLoss(iface)
+	waitForLinkLoss(ctx, iface)
 }
