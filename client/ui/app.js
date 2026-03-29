@@ -205,11 +205,11 @@ function connectMacStats() {
 function updateConnectedCard(d) {
   const cpu = d.cpu_percent;
   const mem = d.ram_percent;
-  const tmp = d.temperature;
+  const tmp = d.power_w;
 
   document.getElementById("cc-cpu").textContent  = cpu != null ? `${Math.round(cpu)}%` : "–";
   document.getElementById("cc-mem").textContent  = mem != null ? `${Math.round(mem)}%` : "–";
-  document.getElementById("cc-temp").textContent = tmp          ? `${Math.round(tmp)}°` : "N/A";
+  document.getElementById("cc-temp").textContent = tmp != null  ? `${tmp.toFixed(1)}W`  : "–";
 
   // Uptime
   const uptimeEl = document.getElementById("cc-uptime");
