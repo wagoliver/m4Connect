@@ -67,9 +67,23 @@ func main() {
 	log.Printf("WiFi interfaces (ignored): %v", wifi)
 
 	for {
-		log.Println("Aguardando cabo Ethernet...")
-		iface := waitForNewCable(wifi)
-		log.Printf("Cabo detectado: %s", iface)
+		var iface string
+		if cfg.LastIface != "" {
+			status, _ := getInterfaceStatus(cfg.LastIface)
+			if status == "active" {
+				iface = cfg.LastIface
+				log.Printf("Interface salva já ativa: %s", iface)
+			}
+		}
+		if iface == "" {
+			log.Println("Aguardando cabo Ethernet...")
+			iface = waitForNewCable(wifi)
+			log.Printf("Cabo detectado: %s", iface)
+		}
+		if cfg.LastIface != iface {
+			cfg.LastIface = iface
+			saveConfig(cfg)
+		}
 
 		func() {
 			defer func() {

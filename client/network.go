@@ -51,6 +51,19 @@ func getEthernetInterfaces() []EthernetIface {
 	return result
 }
 
+// knownIfaceIfActive returns name if the interface is currently active, else "".
+func knownIfaceIfActive(name string) string {
+	if name == "" {
+		return ""
+	}
+	for _, iface := range getEthernetInterfaces() {
+		if iface.Name == name && iface.Status == "active" {
+			return name
+		}
+	}
+	return ""
+}
+
 func waitForEthernetCable() string {
 	seen := make(map[string]string)
 	for _, iface := range getEthernetInterfaces() {

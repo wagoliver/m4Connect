@@ -20,6 +20,7 @@ type Config struct {
 	HandshakePort   int    `json:"handshake_port"`
 	MacSuffix       string `json:"mac_suffix"`
 	ClientSuffix    string `json:"client_suffix"`
+	LastIface       string `json:"last_iface,omitempty"`
 }
 
 func newToken() string {

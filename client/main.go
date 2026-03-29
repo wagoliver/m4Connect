@@ -48,6 +48,7 @@ type Config struct {
 	DefaultSubnet string `json:"default_subnet"`
 	ClientSuffix  string `json:"client_suffix"`
 	HandshakePort int    `json:"handshake_port"`
+	LastIface     string `json:"last_iface,omitempty"`
 }
 
 func defaultCfg() Config {
@@ -131,11 +132,17 @@ func connectionFlow() {
 	clientIP := fmt.Sprintf("%s.%s", subnet, cfg.ClientSuffix)
 	serverIP := fmt.Sprintf("%s.1", subnet)
 
-	emit("cable", "waiting", "Aguardando cabo Ethernet...")
-	iface := waitForEthernetCable()
+	iface := knownIfaceIfActive(cfg.LastIface)
+	if iface != "" {
+		log.Printf("Interface salva já ativa: %s", iface)
+		emit("cable", "done", fmt.Sprintf("Interface: %s (salva)", iface))
+	} else {
+		emit("cable", "waiting", "Aguardando cabo Ethernet...")
+		iface = waitForEthernetCable()
+		log.Printf("Cabo detectado: %s", iface)
+		emit("cable", "done", fmt.Sprintf("Interface: %s", iface))
+	}
 	currentIface = iface
-	log.Printf("Cabo detectado: %s", iface)
-	emit("cable", "done", fmt.Sprintf("Interface: %s", iface))
 
 	emit("ip", "waiting", fmt.Sprintf("Configurando %s...", clientIP))
 	_, netshErr := configureIPWindowsDebug(iface, clientIP, "255.255.255.252")
@@ -169,6 +176,10 @@ func connectionFlow() {
 	}
 	log.Printf("Conectado: %s (%s) portal:%d", res.Hostname, res.MacIP, res.PortalPort)
 	emit("handshake", "done", fmt.Sprintf("%s — %s", res.Hostname, res.MacIP))
+	if cfg.LastIface != iface {
+		cfg.LastIface = iface
+		saveConfigFile(cfg)
+	}
 
 	emit("portal", "waiting", "Verificando portal...")
 	rtt, err := pingRTT(res.MacIP)
