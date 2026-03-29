@@ -116,6 +116,7 @@ function showProgress() {
   document.getElementById("state-idle").classList.add("hidden");
   document.getElementById("state-progress").classList.remove("hidden");
   document.getElementById("state-connected").classList.add("hidden");
+  document.getElementById("reset-iface-row").classList.remove("hidden");
   document.getElementById("app-subtitle").textContent = "Waiting for cable…";
   STEPS.forEach(s => setStep(s, "pending", "–"));
   document.getElementById("detail-cable").textContent = "Waiting…";
@@ -129,6 +130,7 @@ function showProgress() {
 function showConnected(url) {
   setTimeout(() => {
     document.getElementById("state-progress").classList.add("hidden");
+    document.getElementById("reset-iface-row").classList.add("hidden");
     document.getElementById("state-connected").classList.remove("hidden");
     document.getElementById("app-subtitle").textContent = "Connected";
     document.getElementById("cc-hostname").textContent =
@@ -317,6 +319,11 @@ function showError() {
 }
 
 function retryConnection() {
+  startConnection();
+}
+
+async function resetIface() {
+  await fetch("/api/reset-iface", { method: "POST" }).catch(() => {});
   startConnection();
 }
 

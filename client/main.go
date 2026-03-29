@@ -286,6 +286,15 @@ func startLocalServer() {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
+	// Reset saved interface (force re-detection on next connect)
+	mux.HandleFunc("/api/reset-iface", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		cfg := loadConfig()
+		cfg.LastIface = ""
+		saveConfigFile(cfg)
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	})
+
 	// Ping — measures RTT to Mac Mini portal
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
