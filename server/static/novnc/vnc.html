@@ -10,18 +10,22 @@
     #screen{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
     #pwd-overlay{display:none;position:fixed;inset:0;z-index:10;background:rgba(8,8,8,.92);align-items:center;justify-content:center}
     #pwd-overlay.visible{display:flex}
-    #pwd-box{background:#111213;border:1px solid #1e1f21;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:12px;min-width:260px}
+    #pwd-box{background:#111213;border:1px solid #1e1f21;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:10px;min-width:280px}
     #pwd-box label{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;color:#8e8e93}
+    #auth-type{font-size:10px;color:#3a3a3c;text-align:center;font-family:"SF Mono",monospace}
     #pwd-error{font-size:11px;color:#ff453a;display:none}
-    #pwd-input{background:#0a0a0b;border:1px solid #1e1f21;border-radius:7px;padding:8px 10px;color:#e8e8ea;font-size:13px;font-family:"SF Mono",monospace;outline:none;width:100%}
-    #pwd-input:focus{border-color:#4a90d9}
+    .field-row{display:flex;flex-direction:column;gap:4px}
+    .field-row span{font-size:11px;color:#636366;font-family:-apple-system,sans-serif}
+    input[type=text],input[type=password]{background:#0a0a0b;border:1px solid #1e1f21;border-radius:7px;padding:8px 10px;color:#e8e8ea;font-size:13px;font-family:"SF Mono",monospace;outline:none;width:100%}
+    input:focus{border-color:#4a90d9}
     #pwd-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#8e8e93;font-size:11.5px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:background .15s,color .15s}
     #pwd-btn:hover{background:rgba(255,255,255,.12);color:#e8e8ea}
     #status{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-family:"SF Mono",monospace;font-size:11px;color:#8e8e93;background:rgba(13,13,14,.85);border:1px solid #1e1f21;border-radius:6px;padding:4px 10px;pointer-events:none;white-space:nowrap}
-    #log-panel{position:fixed;top:8px;left:8px;right:8px;max-height:140px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
+    #log-panel{position:fixed;top:8px;left:8px;right:8px;max-height:120px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
     #log-panel .ok{color:#30d158}
     #log-panel .err{color:#ff453a}
     #log-panel .info{color:#4a90d9}
+    #user-row{display:none}
   </style>
 </head>
 <body>
@@ -29,9 +33,17 @@
 
   <div id="pwd-overlay">
     <div id="pwd-box">
-      <label>Senha VNC</label>
+      <label>Autenticação VNC</label>
+      <div id="auth-type"></div>
       <div id="pwd-error"></div>
-      <input id="pwd-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
+      <div class="field-row" id="user-row">
+        <span>Usuário macOS</span>
+        <input id="user-input" type="text" placeholder="wagneroliveira" autocomplete="username"/>
+      </div>
+      <div class="field-row">
+        <span>Senha</span>
+        <input id="pwd-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
       <button id="pwd-btn">Conectar</button>
     </div>
   </div>
@@ -45,9 +57,12 @@
     const screen    = document.getElementById('screen');
     const status    = document.getElementById('status');
     const overlay   = document.getElementById('pwd-overlay');
+    const userRow   = document.getElementById('user-row');
+    const userInput = document.getElementById('user-input');
     const pwdInput  = document.getElementById('pwd-input');
     const pwdBtn    = document.getElementById('pwd-btn');
     const pwdError  = document.getElementById('pwd-error');
+    const authType  = document.getElementById('auth-type');
     const logPanel  = document.getElementById('log-panel');
 
     function log(msg, type = 'info') {
@@ -63,14 +78,10 @@
     const wsURL = `${proto}://${location.host}/ws/vnc`;
 
     let rfb = null;
-    let pendingPassword = null;
+    let needsUsername = false;
 
     function connect() {
-      if (rfb) {
-        try { rfb.disconnect(); } catch(e) {}
-        rfb = null;
-      }
-
+      if (rfb) { try { rfb.disconnect(); } catch(e) {} rfb = null; }
       log(`Conectando a ${wsURL}...`);
       status.textContent = 'Conectando…';
 
@@ -93,21 +104,30 @@
           log(msg, clean ? 'info' : 'err');
         });
 
-        rfb.addEventListener('credentialsrequired', () => {
-          log('Servidor pediu senha', 'info');
-          status.textContent = 'Aguardando senha…';
+        rfb.addEventListener('credentialsrequired', (e) => {
+          const types = e.detail?.types || ['password'];
+          needsUsername = types.includes('username');
+          log(`Credenciais pedidas: ${JSON.stringify(types)}`, 'info');
+          status.textContent = 'Aguardando credenciais…';
           pwdError.style.display = 'none';
+
+          if (needsUsername) {
+            userRow.style.display = 'flex';
+            authType.textContent = 'Apple Remote Desktop (usuário + senha macOS)';
+            userInput.focus();
+          } else {
+            userRow.style.display = 'none';
+            authType.textContent = 'VNC Auth (senha VNC)';
+            pwdInput.focus();
+          }
           overlay.classList.add('visible');
-          pwdInput.focus();
         });
 
         rfb.addEventListener('securityfailure', (e) => {
-          const reason = e.detail?.reason || 'senha incorreta';
           log('Falha de auth: ' + JSON.stringify(e.detail), 'err');
           status.textContent = 'Falha de autenticação';
-          pwdError.textContent = 'Senha incorreta — tente novamente';
+          pwdError.textContent = 'Credenciais incorretas — tente novamente';
           pwdError.style.display = 'block';
-          // Reconecta para nova tentativa
           setTimeout(() => connect(), 500);
         });
 
@@ -117,13 +137,19 @@
       }
     }
 
-    function sendPassword() {
+    function sendCredentials() {
       const pwd = pwdInput.value;
       if (!pwd) return;
       overlay.classList.remove('visible');
-      log(`Enviando senha (${pwd.length} chars)...`);
+
+      const creds = needsUsername
+        ? { username: userInput.value, password: pwd }
+        : { password: pwd };
+
+      log(`Enviando credenciais (tipo: ${needsUsername ? 'ARD' : 'VNC'}, user: ${needsUsername ? userInput.value : '-'}, senha: ${pwd.length} chars)...`);
+
       if (rfb) {
-        rfb.sendCredentials({ password: pwd });
+        rfb.sendCredentials(creds);
       } else {
         log('rfb não existe, reconectando...', 'err');
         connect();
@@ -131,8 +157,9 @@
       pwdInput.value = '';
     }
 
-    pwdBtn.addEventListener('click', sendPassword);
-    pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPassword(); });
+    pwdBtn.addEventListener('click', sendCredentials);
+    pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendCredentials(); });
+    userInput.addEventListener('keydown', e => { if (e.key === 'Enter') pwdInput.focus(); });
 
     connect();
   </script>
