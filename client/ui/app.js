@@ -116,7 +116,6 @@ function showProgress() {
   document.getElementById("state-idle").classList.add("hidden");
   document.getElementById("state-progress").classList.remove("hidden");
   document.getElementById("state-connected").classList.add("hidden");
-  document.getElementById("reset-iface-row").classList.remove("hidden");
   document.getElementById("app-subtitle").textContent = "Waiting for cable…";
   STEPS.forEach(s => setStep(s, "pending", "–"));
   document.getElementById("detail-cable").textContent = "Waiting…";
@@ -130,8 +129,9 @@ function showProgress() {
 function showConnected(url) {
   setTimeout(() => {
     document.getElementById("state-progress").classList.add("hidden");
-    document.getElementById("reset-iface-row").classList.add("hidden");
     document.getElementById("state-connected").classList.remove("hidden");
+    document.getElementById("btn-disconnect").classList.remove("hidden");
+    document.getElementById("btn-reconnect").classList.add("hidden");
     document.getElementById("app-subtitle").textContent = "Connected";
     document.getElementById("cc-hostname").textContent =
       document.getElementById("device-name").textContent;
@@ -158,7 +158,17 @@ async function doDisconnect() {
   _portalUrl   = null;
   _hostnameUrl = null;
   _macIp       = null;
-  showProgress();
+  // Show Reconectar button instead of going back to cable-waiting
+  document.getElementById("btn-disconnect").classList.add("hidden");
+  document.getElementById("btn-reconnect").classList.remove("hidden");
+  document.getElementById("cc-lost")?.classList.add("hidden");
+  document.getElementById("app-subtitle").textContent = "Disconnected";
+}
+
+async function doReconnectSaved() {
+  document.getElementById("btn-reconnect").classList.add("hidden");
+  document.getElementById("btn-disconnect").classList.remove("hidden");
+  startConnection();
 }
 
 function doReconnect() {
@@ -319,11 +329,6 @@ function showError() {
 }
 
 function retryConnection() {
-  startConnection();
-}
-
-async function resetIface() {
-  await fetch("/api/reset-iface", { method: "POST" }).catch(() => {});
   startConnection();
 }
 
