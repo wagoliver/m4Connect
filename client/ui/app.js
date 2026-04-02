@@ -426,6 +426,7 @@ window.addEventListener("load", async () => {
   setTimeout(() => window.resizeTo(900, 640), 100);
   connectSSE();
 
+  let hasSavedIface = false;
   try {
     const s = await fetch("/api/status").then(r => r.json());
     if (s.connected) {
@@ -444,7 +445,12 @@ window.addEventListener("load", async () => {
       startPingPolling();
       return;
     }
+    hasSavedIface = !!s.has_saved_iface;
   } catch (_) {}
 
-  setTimeout(startConnection, 400);
+  if (hasSavedIface) {
+    setTimeout(startConnection, 400);
+  } else {
+    showProgress();
+  }
 });

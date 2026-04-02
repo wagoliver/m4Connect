@@ -168,6 +168,17 @@ func connectionFlow() {
 	}()
 
 	emit("handshake", "waiting", fmt.Sprintf("Procurando Mac Mini em %s...", serverIP))
+	token, err := fetchToken(serverIP, clientIP, cfg.HandshakePort)
+	if err != nil {
+		log.Printf("Falha ao obter token: %v", err)
+		emit("handshake", "error", fmt.Sprintf("Falha ao obter token: %v", err))
+		return
+	}
+	if cfg.Token != token {
+		cfg.Token = token
+		saveConfigFile(cfg)
+		log.Printf("Token atualizado")
+	}
 	res, err := sendHandshake(serverIP, clientIP, cfg.Token, cfg.HandshakePort, 30*time.Second)
 	if err != nil {
 		log.Printf("Handshake falhou: %v", err)
@@ -271,7 +282,12 @@ func startLocalServer() {
 	// Connection status
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(appStatus)
+		cfg := loadConfig()
+		type statusResp struct {
+			AppStatus
+			HasSavedIface bool `json:"has_saved_iface"`
+		}
+		json.NewEncoder(w).Encode(statusResp{appStatus, cfg.LastIface != ""})
 	})
 
 	// Disconnect

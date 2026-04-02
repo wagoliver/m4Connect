@@ -117,6 +117,49 @@ func releaseIPWindows(ifaceName string) {
 		fmt.Sprintf("name=%s", ifaceName), "dhcp").Run()
 }
 
+// ── Token Discovery ───────────────────────────────────────────────────────────
+
+func fetchToken(serverIP, clientIP string, port int) (string, error) {
+	localAddr, err := net.ResolveUDPAddr("udp", clientIP+":0")
+	if err != nil {
+		return "", err
+	}
+	remoteAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", serverIP, port))
+	if err != nil {
+		return "", err
+	}
+
+	var conn *net.UDPConn
+	for i := 0; i < 10; i++ {
+		conn, err = net.DialUDP("udp", localAddr, remoteAddr)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	conn.SetDeadline(time.Now().Add(10 * time.Second))
+	if _, err := conn.Write([]byte("M4WHO")); err != nil {
+		return "", err
+	}
+
+	buf := make([]byte, 512)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return "", fmt.Errorf("sem resposta do Mac Mini")
+	}
+
+	resp := string(buf[:n])
+	if !strings.HasPrefix(resp, "M4TOKEN:") {
+		return "", fmt.Errorf("resposta inesperada: %s", resp)
+	}
+	return strings.TrimPrefix(resp, "M4TOKEN:"), nil
+}
+
 // ── Handshake ─────────────────────────────────────────────────────────────────
 
 type HandshakeResult struct {

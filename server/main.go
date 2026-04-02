@@ -133,7 +133,13 @@ func handleSession(cfg Config, iface string, store *Storage, convStore *ConvStor
 			log.Printf("Handshake timeout/erro: %v", err)
 			return
 		}
-		if string(buf[:n]) != expected {
+		msg := string(buf[:n])
+		if msg == "M4WHO" {
+			log.Printf("M4WHO de %s — enviando token", addr)
+			conn.WriteTo([]byte("M4TOKEN:"+cfg.Token), addr)
+			continue
+		}
+		if msg != expected {
 			log.Printf("Handshake inválido de %s — ignorando", addr)
 			continue
 		}
