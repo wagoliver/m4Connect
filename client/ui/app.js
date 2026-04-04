@@ -351,7 +351,7 @@ async function startConnection() {
 }
 
 function doOpenPortal() {
-  const url = _hostnameUrl || _portalUrl;
+  const url = _portalUrl || _hostnameUrl;
   if (url) window.open(url, "_blank");
 }
 
