@@ -915,7 +915,7 @@ html, body {
 .modal-btn-save:hover { opacity: .85; }
 
 /* ── Log footer ────────────────────────────────────────────────────────────── */
-.log-footer {
+.log-footer-wrap {
   position: fixed;
   bottom: 14px;
   left: 24px;
@@ -926,6 +926,28 @@ html, body {
   pointer-events: none;
   z-index: 10;
 }
+
+.log-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-copy-log {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  pointer-events: auto;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.08);
+  line-height: 0;
+  transition: color .2s;
+}
+.btn-copy-log:hover  { color: rgba(255,255,255,0.35); }
+.btn-copy-log.copied { color: rgba(100,220,130,0.7); }
 
 .log-footer-entry {
   font-family: var(--mono);

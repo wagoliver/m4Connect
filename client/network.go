@@ -142,10 +142,26 @@ func fetchToken(serverIP, clientIP string, port int) (string, error) {
 	}
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
+	conn.SetDeadline(time.Now().Add(15 * time.Second))
 	if _, err := conn.Write([]byte("M4WHO")); err != nil {
 		return "", err
 	}
+
+	// Reenvia M4WHO a cada 2s caso o servidor esteja entre sessões
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.Write([]byte("M4WHO"))
+			case <-done:
+				return
+			}
+		}
+	}()
 
 	buf := make([]byte, 512)
 	n, err := conn.Read(buf)

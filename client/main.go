@@ -168,17 +168,27 @@ func connectionFlow() {
 	}()
 
 	emit("handshake", "waiting", fmt.Sprintf("Procurando Mac Mini em %s...", serverIP))
+	log.Printf("Enviando M4WHO para %s:%d...", serverIP, cfg.HandshakePort)
 	token, err := fetchToken(serverIP, clientIP, cfg.HandshakePort)
 	if err != nil {
-		log.Printf("Falha ao obter token: %v", err)
-		emit("handshake", "error", fmt.Sprintf("Falha ao obter token: %v", err))
-		return
+		if cfg.Token != "" {
+			log.Printf("M4WHO falhou (%v) — usando token salvo", err)
+		} else {
+			log.Printf("Falha ao obter token: %v", err)
+			emit("handshake", "error", fmt.Sprintf("Falha ao obter token: %v", err))
+			return
+		}
+	} else {
+		log.Printf("Token recebido do servidor")
+		if cfg.Token != token {
+			cfg.Token = token
+			saveConfigFile(cfg)
+			log.Printf("Token atualizado no config")
+		} else {
+			log.Printf("Token já estava correto")
+		}
 	}
-	if cfg.Token != token {
-		cfg.Token = token
-		saveConfigFile(cfg)
-		log.Printf("Token atualizado")
-	}
+	log.Printf("Enviando M4HELLO para %s:%d...", serverIP, cfg.HandshakePort)
 	res, err := sendHandshake(serverIP, clientIP, cfg.Token, cfg.HandshakePort, 30*time.Second)
 	if err != nil {
 		log.Printf("Handshake falhou: %v", err)

@@ -44,16 +44,28 @@ function setStep(stepId, status, detail) {
 
 // ── Log footer ────────────────────────────────────────────────────────────────
 const MAX_LOG_LINES = 4;
+const _logHistory = [];
 
 function appendLog(line) {
+  _logHistory.push(line);
   const footer = document.getElementById("log-footer");
   const el = document.createElement("div");
   el.className = "log-footer-entry";
   el.textContent = line;
   footer.appendChild(el);
-  while (footer.children.length > MAX_LOG_LINES) {
-    footer.removeChild(footer.firstChild);
+  while (footer.querySelectorAll(".log-footer-entry").length > MAX_LOG_LINES) {
+    footer.querySelector(".log-footer-entry").remove();
   }
+}
+
+function copyLogs() {
+  if (!_logHistory.length) return;
+  navigator.clipboard.writeText(_logHistory.join("\n")).then(() => {
+    const btn = document.getElementById("btn-copy-log");
+    if (!btn) return;
+    btn.classList.add("copied");
+    setTimeout(() => btn.classList.remove("copied"), 1200);
+  });
 }
 
 // ── SSE ───────────────────────────────────────────────────────────────────────
@@ -117,6 +129,7 @@ function showProgress() {
   document.getElementById("state-progress").classList.remove("hidden");
   document.getElementById("state-connected").classList.add("hidden");
   document.getElementById("btn-reconnect")?.classList.add("hidden");
+  document.getElementById("btn-manual")?.classList.remove("hidden");
   document.getElementById("app-subtitle").textContent = "Waiting for cable…";
   STEPS.forEach(s => setStep(s, "pending", "–"));
   document.getElementById("detail-cable").textContent = "Waiting…";
@@ -448,9 +461,6 @@ window.addEventListener("load", async () => {
     hasSavedIface = !!s.has_saved_iface;
   } catch (_) {}
 
-  if (hasSavedIface) {
-    setTimeout(startConnection, 400);
-  } else {
-    showProgress();
-  }
+  // Sempre inicia a conexão automaticamente
+  setTimeout(startConnection, 400);
 });

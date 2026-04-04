@@ -120,6 +120,17 @@
       <!-- Reconectar button (shown after disconnect) -->
       <button class="cc-btn-reconnect hidden" id="btn-reconnect" onclick="doReconnectSaved()">Reconectar</button>
 
+      <!-- Spacer -->
+      <div style="flex:1"></div>
+
+      <!-- Bottom bar -->
+      <div class="panel-footer">
+        <span class="footer-hint" id="state-idle">Plug in the Cat8 cable to start</span>
+        <button class="btn-retry hidden" id="btn-manual" onclick="startConnection()">Connect manually</button>
+      </div>
+
+    </div><!-- /steps -->
+
       <!-- Connected card -->
       <div class="cc-card hidden" id="state-connected">
 
@@ -214,20 +225,18 @@
 
       </div>
 
-      <!-- Spacer -->
-      <div style="flex:1"></div>
-
-      <!-- Bottom bar -->
-      <div class="panel-footer">
-        <span class="footer-hint" id="state-idle">Plug in the Cat8 cable to start</span>
-        <button class="btn-retry hidden" id="btn-manual" onclick="startConnection()">Connect manually</button>
-      </div>
-
     </div><!-- /panel -->
   </div><!-- /shell -->
 
   <!-- Log footer -->
-  <div class="log-footer" id="log-footer"></div>
+  <div class="log-footer-wrap">
+    <div class="log-footer" id="log-footer"></div>
+    <button class="btn-copy-log" id="btn-copy-log" onclick="copyLogs()" title="Copy logs">
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 2H10.5C11.3284 2 12 2.67157 12 3.5V11M3.5 4H9.5C9.77614 4 10 4.22386 10 4.5V12.5C10 12.7761 9.77614 13 9.5 13H3.5C3.22386 13 3 12.7761 3 12.5V4.5C3 4.22386 3.22386 4 3.5 4Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
 
   <!-- Settings overlay -->
   <div class="overlay hidden" id="settings-overlay">
