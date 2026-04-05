@@ -406,6 +406,43 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 		w.Write(data)
 	})
 
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			user := r.FormValue("user")
+			pass := r.FormValue("pass")
+			if pamAuthenticate(user, pass) {
+				tok := newSession()
+				http.SetCookie(w, &http.Cookie{
+					Name:     cookieName,
+					Value:    tok,
+					Path:     "/",
+					HttpOnly: true,
+					MaxAge:   int(sessionTTL.Seconds()),
+				})
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+			http.Redirect(w, r, "/login?err=1", http.StatusFound)
+			return
+		}
+		data, _ := staticFiles.ReadFile("static/login.html")
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(data)
+	})
+
+	mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie(cookieName); err == nil {
+			deleteSession(c.Value)
+		}
+		http.SetCookie(w, &http.Cookie{
+			Name:   cookieName,
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
+		http.Redirect(w, r, "/login", http.StatusFound)
+	})
+
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(collectStats(rt, bindIP))
@@ -667,8 +704,8 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 	}()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", bindIP, port),
-		Handler: mux,
+		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
+		Handler: requireAuth(mux),
 	}
 
 	// Desliga o servidor quando o cabo for removido (ctx cancelado)
@@ -680,7 +717,7 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 		log.Println("Portal encerrado.")
 	}()
 
-	log.Printf("Portal: http://%s:%d", bindIP, port)
+	log.Printf("Portal: http://0.0.0.0:%d  (P2P: http://%s:%d)", port, bindIP, port)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Printf("Portal erro: %v", err)
 	}

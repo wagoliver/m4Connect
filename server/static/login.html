@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mac Mini M4 — Login</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#080808;
+      --card:#111213;
+      --card-border:#1e1f21;
+      --text:#e8e8ea;
+      --text2:#8e8e93;
+      --green:#30d158;
+      --blue:#4a90d9;
+      --radius:12px;
+      --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",system-ui,sans-serif;
+    }
+    html,body{
+      height:100%;
+      background:var(--bg);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:14px;
+      -webkit-font-smoothing:antialiased;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--card-border);
+      border-radius:var(--radius);
+      padding:36px 32px;
+      width:320px;
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+    }
+    .brand{
+      text-align:center;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+    }
+    .brand-icon{
+      width:48px;
+      height:48px;
+      opacity:.85;
+    }
+    .brand h1{
+      font-size:16px;
+      font-weight:600;
+      letter-spacing:.01em;
+    }
+    .brand p{
+      font-size:12px;
+      color:var(--text2);
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .field label{
+      font-size:12px;
+      color:var(--text2);
+      font-weight:500;
+    }
+    .field input{
+      background:#1a1b1d;
+      border:1px solid var(--card-border);
+      border-radius:8px;
+      color:var(--text);
+      font-family:inherit;
+      font-size:14px;
+      padding:9px 12px;
+      outline:none;
+      transition:border-color .15s;
+    }
+    .field input:focus{
+      border-color:var(--blue);
+    }
+    .btn{
+      background:var(--blue);
+      border:none;
+      border-radius:8px;
+      color:#fff;
+      cursor:pointer;
+      font-family:inherit;
+      font-size:14px;
+      font-weight:600;
+      padding:10px;
+      width:100%;
+      transition:opacity .15s;
+    }
+    .btn:hover{opacity:.88}
+    .btn:active{opacity:.75}
+    .error{
+      background:#2a1414;
+      border:1px solid #5a2020;
+      border-radius:8px;
+      color:#ff6b6b;
+      font-size:12px;
+      padding:9px 12px;
+      text-align:center;
+      display:none;
+    }
+    .error.show{display:block}
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login">
+    <div class="brand">
+      <img class="brand-icon" src="/static/img/macmini.png" alt="Mac Mini"/>
+      <h1>Mac Mini M4</h1>
+      <p>Entre com seu usuário do sistema</p>
+    </div>
+
+    <div id="err" class="error">Usuário ou senha inválidos</div>
+
+    <div class="field">
+      <label for="user">Usuário</label>
+      <input id="user" name="user" type="text" autocomplete="username" autofocus required/>
+    </div>
+    <div class="field">
+      <label for="pass">Senha</label>
+      <input id="pass" name="pass" type="password" autocomplete="current-password" required/>
+    </div>
+
+    <button class="btn" type="submit">Entrar</button>
+  </form>
+
+  <script>
+    const p = new URLSearchParams(location.search);
+    if (p.get("err")) document.getElementById("err").classList.add("show");
+  </script>
+</body>
+</html>
