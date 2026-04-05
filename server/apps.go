@@ -40,7 +40,7 @@ type AppDef struct {
 	Name          string
 	Desc          string
 	Category      string // "ai" | "remote" | "tools"
-	InstallMethod string // "dmg" | "zip-app" | "bin" | "pkg" | "pip"
+	InstallMethod string // "dmg" | "zip-app" | "bin" | "pkg" | "pip" | "brew"
 	DownloadURL   string // direct or redirecting URL (takes priority)
 	GitHubOwner   string // for GitHub API latest-release resolution
 	GitHubRepo    string
@@ -75,7 +75,7 @@ var appRegistry = []AppDef{
 		ID: "open-webui", Name: "Open WebUI",
 		Desc:          "Interface web para modelos locais (compatível com Ollama)",
 		Category:      "ai",
-		InstallMethod: "pip",
+		InstallMethod: "brew",
 		InstallPkg:    "open-webui",
 		CheckBinary:   "open-webui",
 		ServicePort:   3000,
@@ -387,6 +387,8 @@ func installApp(app *AppDef, send func(string)) bool {
 		return installPKG(app, tmpDir, send)
 	case "pip":
 		return installPip(app, send)
+	case "brew":
+		return installBrew(app, send)
 	default:
 		send("Método de instalação desconhecido: " + app.InstallMethod)
 		return false
@@ -533,6 +535,89 @@ func installPKG(app *AppDef, tmpDir string, send func(string)) bool {
 	return true
 }
 
+// findBrew returns the path to the Homebrew binary, or empty string if not found.
+func findBrew() string {
+	for _, p := range []string{"/opt/homebrew/bin/brew", "/usr/local/bin/brew"} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func installBrew(app *AppDef, send func(string)) bool {
+	brewPath := findBrew()
+	if brewPath == "" {
+		send("Homebrew não encontrado. Instale em https://brew.sh e tente novamente.")
+		return false
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		send("Erro ao obter usuário: " + err.Error())
+		return false
+	}
+
+	env := append(os.Environ(),
+		"HOME="+u.HomeDir,
+		"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
+		"HOMEBREW_NO_AUTO_UPDATE=1",
+		"HOMEBREW_NO_ENV_HINTS=1",
+	)
+
+	// Check if already installed via brew to decide between install and upgrade
+	checkCmd := exec.Command(brewPath, "list", "--formula", app.InstallPkg)
+	checkCmd.Env = env
+	alreadyInstalled := checkCmd.Run() == nil
+
+	var cmd *exec.Cmd
+	if alreadyInstalled {
+		send(fmt.Sprintf("Atualizando %s via Homebrew...", app.InstallPkg))
+		cmd = exec.Command(brewPath, "upgrade", app.InstallPkg)
+	} else {
+		send(fmt.Sprintf("Instalando %s via Homebrew...", app.InstallPkg))
+		cmd = exec.Command(brewPath, "install", app.InstallPkg)
+	}
+	cmd.Env = env
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	var cmdErr error
+	go func() { cmdErr = cmd.Run(); pw.Close() }()
+
+	scanner := bufio.NewScanner(pr)
+	for scanner.Scan() {
+		line := stripANSI(scanner.Text())
+		if line != "" {
+			send(line)
+		}
+	}
+	return cmdErr == nil
+}
+
+// findPython returns the path to the best available Python 3.11+ interpreter.
+func findPython() string {
+	candidates := []string{
+		"/opt/homebrew/bin/python3.13",
+		"/opt/homebrew/bin/python3.12",
+		"/opt/homebrew/bin/python3.11",
+		"/usr/local/bin/python3.13",
+		"/usr/local/bin/python3.12",
+		"/usr/local/bin/python3.11",
+		"/opt/homebrew/bin/python3",
+		"/usr/local/bin/python3",
+		"/usr/bin/python3",
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 func installPip(app *AppDef, send func(string)) bool {
 	u, err := user.Current()
 	if err != nil {
@@ -540,8 +625,16 @@ func installPip(app *AppDef, send func(string)) bool {
 		return false
 	}
 
-	send(fmt.Sprintf("Instalando %s via pip3...", app.InstallPkg))
-	cmd := exec.Command("pip3", "install", "--upgrade", app.InstallPkg)
+	python := findPython()
+	if python == "" {
+		send("Python 3 não encontrado. Instale via Homebrew: brew install python@3.11")
+		return false
+	}
+	send(fmt.Sprintf("Usando: %s", python))
+	send(fmt.Sprintf("Instalando %s via pip...", app.InstallPkg))
+
+	cmd := exec.Command(python, "-m", "pip", "install", "--upgrade",
+		"--break-system-packages", app.InstallPkg)
 	cmd.Env = append(os.Environ(),
 		"HOME="+u.HomeDir,
 		"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
@@ -605,6 +698,27 @@ func uninstallApp(app *AppDef, send func(string)) bool {
 		}
 		send("Desinstalando " + app.InstallPkg + " via pip3...")
 		cmd := exec.Command("pip3", "uninstall", "-y", app.InstallPkg)
+		cmd.Env = append(os.Environ(),
+			"HOME="+u.HomeDir,
+			"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			send("Erro: " + strings.TrimSpace(string(out)))
+			return false
+		}
+		send("Desinstalado.")
+		return true
+
+	case "brew":
+		brewPath := findBrew()
+		if brewPath == "" {
+			send("Homebrew não encontrado.")
+			return false
+		}
+		u, _ := user.Current()
+		send("Desinstalando " + app.InstallPkg + " via Homebrew...")
+		cmd := exec.Command(brewPath, "uninstall", "--force", app.InstallPkg)
 		cmd.Env = append(os.Environ(),
 			"HOME="+u.HomeDir,
 			"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
