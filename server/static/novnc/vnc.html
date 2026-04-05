@@ -71,13 +71,15 @@
         rfb = new RFB(screen, wsURL);
         rfb.scaleViewport = true;
         rfb.resizeSession = false;
+        rfb.viewOnly = false;
+        rfb.focusOnClick = true;
 
         rfb.addEventListener('connect', () => {
           status.textContent = 'Conectado';
           log('Conectado!', 'ok');
           overlay.classList.remove('visible');
           setTimeout(() => { logPanel.style.display = 'none'; }, 2000);
-          rfb.focus();
+          setTimeout(() => rfb && rfb.focus(), 200);
         });
 
         rfb.addEventListener('disconnect', (e) => {
@@ -120,6 +122,10 @@
 
     pwdBtn.addEventListener('click', sendPassword);
     pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPassword(); });
+
+    // Refocus noVNC canvas on any mouse interaction with the screen area
+    screen.addEventListener('mousedown', () => { window.focus(); if (rfb) rfb.focus(); });
+    screen.addEventListener('mouseenter', () => { if (rfb) rfb.focus(); });
 
     connect();
   </script>
