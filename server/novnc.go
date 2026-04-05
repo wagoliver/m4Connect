@@ -9,16 +9,15 @@ import (
 )
 
 const novncVersion = "1.4.0"
-const novncCDN = "https://cdn.jsdelivr.net/npm/@novnc/novnc@" + novncVersion + "/core/"
+const novncCDN = "https://cdn.jsdelivr.net/npm/@novnc/novnc@" + novncVersion + "/"
 const novncCacheBase = configDir + "/novnc"
 
-// serveNoVNCCore serves noVNC core files from a local cache.
-// On cache miss it fetches from CDN, caches, and serves.
-// This avoids embedding large JS files in the binary while still
-// working offline after the first load.
+// serveNoVNCCore serves any noVNC file (core/, vendor/, etc.) from a local
+// cache. On cache miss it fetches from the npm CDN, caches, and serves.
 func serveNoVNCCore(w http.ResponseWriter, r *http.Request) {
-	rel := strings.TrimPrefix(r.URL.Path, "/static/novnc/core/")
-	if rel == "" || strings.Contains(rel, "..") || strings.Contains(rel, "\x00") {
+	rel := strings.TrimPrefix(r.URL.Path, "/static/novnc/")
+	// Let vnc.html be served by the normal embedded FS handler
+	if rel == "" || rel == "vnc.html" || strings.Contains(rel, "..") || strings.Contains(rel, "\x00") {
 		http.NotFound(w, r)
 		return
 	}

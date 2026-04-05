@@ -398,7 +398,7 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 	mux := http.NewServeMux()
 
 	sub, _ := fs.Sub(staticFiles, "static")
-	mux.HandleFunc("/static/novnc/core/", serveNoVNCCore)
+	mux.HandleFunc("/static/novnc/", serveNoVNCCore)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
