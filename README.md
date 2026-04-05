@@ -42,7 +42,8 @@ A conexão é **ponto a ponto**: nenhum pacote sai para a internet. O protocolo 
 | **Histórico 7 dias** | SQLite no Mac, coleta 1 ponto/min, gráficos com seletor 1h/6h/24h/7d |
 | **VNC / SSH** | Liga/desliga Screen Sharing e SSH diretamente do painel |
 | **Logs em tempo real** | Terminal embutido no portal |
-| **Autenticação** | Token compartilhado — sem usuário/senha, sem TLS, sem internet |
+| **Autenticação** | Token P2P (handshake) + login com usuário/senha do sistema macOS (PAM) |
+| **Acesso remoto** | Portal acessível via Tailscale (qualquer rede) com autenticação obrigatória |
 
 ---
 
@@ -53,6 +54,7 @@ m4Connect/
 ├── server/              # Daemon macOS (Go)
 │   ├── main.go          # Loop de sessão, handshake UDP, lifecyle do daemon
 │   ├── portal.go        # HTTP server, WebSocket hub, coleta de stats
+│   ├── auth.go          # Autenticação PAM, sessões, middleware requireAuth
 │   ├── storage.go       # SQLite — coleta contínua + API de histórico
 │   ├── network.go       # Detecção de interface, configuração de IP via ifconfig
 │   ├── services.go      # Liga/desliga VNC (ARD) e SSH via launchctl
@@ -125,7 +127,10 @@ go build -ldflags="-H windowsgui" -o M4Connect.exe .
 xattr -rd com.apple.quarantine ~/Downloads/M4Server.pkg
 sudo installer -pkg ~/Downloads/M4Server.pkg -target /
 
-# Copiar o token gerado automaticamente
+# Verificar que o daemon está rodando
+sudo launchctl list | grep m4server
+
+# Ver o token gerado automaticamente
 cat "/Library/Application Support/M4Server/config.json"
 ```
 
@@ -133,11 +138,29 @@ O daemon sobe automaticamente via launchd e inicia com o sistema.
 
 Logs em: `/Library/Logs/M4Server/m4server.log`
 
+> **Primeiro acesso ao portal:** o browser abrirá uma tela de login. Use o **usuário e senha do sistema macOS** (o mesmo que você usa para desbloquear o Mac).
+
 ### 2. Windows
 
 1. Clique com botão direito em `M4Connect.exe` → **Executar como administrador**
 2. Na primeira execução: clique em ⚙ e cole o token do Mac
 3. Pluga o cabo Ethernet — a conexão é automática
+4. Clique em **Abrir Portal** e faça login com seu usuário macOS
+
+### 3. Acesso via Tailscale (opcional)
+
+Se o Mac Mini tiver Tailscale instalado, o portal fica acessível de qualquer rede:
+
+1. Instale o Tailscale no Mac Mini e autentique-se
+2. Descubra o IP Tailscale do Mac:
+   ```bash
+   tailscale ip -4
+   # exemplo: 100.102.32.80
+   ```
+3. Acesse `http://<ip-tailscale>:8080` de qualquer dispositivo na sua rede Tailscale
+4. Faça login com usuário/senha do sistema macOS
+
+> O portal escuta em `0.0.0.0:8080`, portanto responde tanto pelo cabo P2P (`10.10.10.1`) quanto pelo Tailscale.
 
 ---
 
@@ -202,9 +225,11 @@ Retenção automática de 7 dias. API: `GET /api/history?period=1h|6h|24h|7d`
 
 ## Segurança
 
-- Token gerado com `crypto/rand` (32 bytes hex) na primeira instalação
-- Comunicação **apenas na sub-rede local** `10.10.10.0/24` — sem roteamento
-- Sem TLS (tráfego não sai da máquina/cabo)
+- **Autenticação P2P:** token gerado com `crypto/rand` (32 bytes hex) na primeira instalação — valida o handshake UDP
+- **Autenticação do portal:** login com usuário/senha do sistema macOS via PAM (`/etc/pam.d/login`) — sessão com cookie HttpOnly (24h)
+- **Acesso P2P:** tráfego apenas na sub-rede `10.10.10.0/24` — sem roteamento para internet
+- **Acesso remoto:** se usar Tailscale, o tráfego passa pela rede privada criptografada do Tailscale
+- Sem TLS nativo (para acesso público, use Tailscale que já provê criptografia)
 - VNC e SSH são desativados quando o cabo é removido
 
 ---
@@ -225,6 +250,12 @@ Retenção automática de 7 dias. API: `GET /api/history?period=1h|6h|24h|7d`
 
 **Temperatura sempre "–°C"**
 → O daemon precisa rodar como root (launchd daemon) para acessar `powermetrics`
+
+**Login falha com usuário/senha corretos**
+→ Verifique se o daemon roda como root: `sudo launchctl list | grep m4server`. O PAM (`/etc/pam.d/login`) requer privilégios de root para autenticar.
+
+**Portal não abre via Tailscale**
+→ Confirme que o Tailscale está ativo no Mac (`tailscale status`) e que a porta 8080 não está bloqueada por firewall local (`sudo pfctl -sr | grep 8080`)
 
 ---
 
