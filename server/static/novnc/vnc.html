@@ -78,8 +78,17 @@
           status.textContent = 'Conectado';
           log('Conectado!', 'ok');
           overlay.classList.remove('visible');
-          setTimeout(() => { logPanel.style.display = 'none'; }, 2000);
+          // log panel fica visível para debug
           setTimeout(() => rfb && rfb.focus(), 200);
+          // loga estado do canvas após foco
+          setTimeout(() => {
+            const canvas = screen.querySelector('canvas');
+            if (canvas) {
+              log(`canvas: ${canvas.width}x${canvas.height} | tabIndex=${canvas.tabIndex} | focused=${document.activeElement === canvas}`, 'info');
+            } else {
+              log('canvas: NÃO encontrado no DOM', 'err');
+            }
+          }, 400);
         });
 
         rfb.addEventListener('disconnect', (e) => {
@@ -124,8 +133,18 @@
     pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPassword(); });
 
     // Refocus noVNC canvas on any mouse interaction with the screen area
-    screen.addEventListener('mousedown', () => { window.focus(); if (rfb) rfb.focus(); });
+    screen.addEventListener('mousedown', (e) => {
+      window.focus();
+      if (rfb) rfb.focus();
+      const canvas = screen.querySelector('canvas');
+      log(`mousedown (${e.clientX},${e.clientY}) | canvas=${!!canvas} | focused=${document.activeElement?.tagName}`, 'ok');
+    });
     screen.addEventListener('mouseenter', () => { if (rfb) rfb.focus(); });
+
+    // Log keyboard events to verify input is reaching the iframe
+    document.addEventListener('keydown', (e) => {
+      log(`keydown: ${e.key} | focused=${document.activeElement?.tagName}`, 'info');
+    });
 
     connect();
   </script>
