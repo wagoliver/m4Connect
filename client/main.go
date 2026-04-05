@@ -380,9 +380,6 @@ func startLocalServer() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const appWidth = 900
-const appHeight = 640
-
 func openBrowser(url string) {
 	switch runtime.GOOS {
 	case "windows":
@@ -394,28 +391,7 @@ func openBrowser(url string) {
 	}
 }
 
-// openAppWindow tries to open Edge or Chrome in --app mode with fixed dimensions.
-// Falls back to the default browser if neither is found.
 func openAppWindow(url string) {
-	appFlag := fmt.Sprintf("--app=%s", url)
-	sizeFlag := fmt.Sprintf("--window-size=%d,%d", appWidth, appHeight)
-
-	candidates := []string{
-		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
-		os.ExpandEnv(`${LOCALAPPDATA}\Microsoft\Edge\Application\msedge.exe`),
-		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
-		os.ExpandEnv(`${LOCALAPPDATA}\Google\Chrome\Application\chrome.exe`),
-	}
-
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			exec.Command(path, appFlag, sizeFlag, "--disable-extensions").Start()
-			return
-		}
-	}
-
-	// Fallback: default browser, no size control
 	exec.Command("cmd", "/c", "start", "", url).Start()
 }
 

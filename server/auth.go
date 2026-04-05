@@ -93,7 +93,7 @@ func deleteSession(tok string) {
 
 func requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/login" || r.URL.Path == "/logout" {
+		if r.URL.Path == "/login" || r.URL.Path == "/logout" || r.URL.Path == "/api/status" {
 			next.ServeHTTP(w, r)
 			return
 		}
