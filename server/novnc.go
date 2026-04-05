@@ -16,9 +16,15 @@ const novncCacheBase = configDir + "/novnc"
 // cache. On cache miss it fetches from the npm CDN, caches, and serves.
 func serveNoVNCCore(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/static/novnc/")
-	// Let vnc.html be served by the normal embedded FS handler
-	if rel == "" || rel == "vnc.html" || strings.Contains(rel, "..") || strings.Contains(rel, "\x00") {
+	if strings.Contains(rel, "..") || strings.Contains(rel, "\x00") {
 		http.NotFound(w, r)
+		return
+	}
+	// vnc.html lives in the embedded FS — serve it directly
+	if rel == "" || rel == "vnc.html" {
+		data, _ := staticFiles.ReadFile("static/novnc/vnc.html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(data)
 		return
 	}
 
