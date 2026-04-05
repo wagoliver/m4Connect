@@ -40,7 +40,7 @@ type AppDef struct {
 	Name          string
 	Desc          string
 	Category      string // "ai" | "remote" | "tools"
-	InstallMethod string // "dmg" | "zip-app" | "bin" | "pkg" | "pip" | "brew"
+	InstallMethod string // "dmg" | "zip-app" | "bin" | "pkg" | "pip" | "brew" | "npm"
 	DownloadURL   string // direct or redirecting URL (takes priority)
 	GitHubOwner   string // for GitHub API latest-release resolution
 	GitHubRepo    string
@@ -120,6 +120,22 @@ var appRegistry = []AppDef{
 		GitHubAsset:   "Darwin-arm64",
 		CheckBinary:   "local-ai",
 		ServicePort:   8080,
+	},
+	{
+		ID: "claude-code", Name: "Claude Code",
+		Desc:          "CLI oficial da Anthropic para programação assistida por IA",
+		Category:      "ai",
+		InstallMethod: "npm",
+		InstallPkg:    "@anthropic-ai/claude-code",
+		CheckBinary:   "claude",
+	},
+	{
+		ID: "opencode", Name: "OpenCode",
+		Desc:          "Agente de programação open-source com suporte a múltiplos modelos",
+		Category:      "ai",
+		InstallMethod: "npm",
+		InstallPkg:    "opencode",
+		CheckBinary:   "opencode",
 	},
 	// ── Remote ────────────────────────────────────────────────────────────────
 	{
@@ -389,6 +405,8 @@ func installApp(app *AppDef, send func(string)) bool {
 		return installPip(app, send)
 	case "brew":
 		return installBrew(app, send)
+	case "npm":
+		return installNPM(app, send)
 	default:
 		send("Método de instalação desconhecido: " + app.InstallMethod)
 		return false
@@ -597,6 +615,57 @@ func installBrew(app *AppDef, send func(string)) bool {
 	return cmdErr == nil
 }
 
+// findNPM returns the path to the npm binary, or empty string if not found.
+func findNPM() string {
+	for _, p := range []string{
+		"/opt/homebrew/bin/npm",
+		"/usr/local/bin/npm",
+		"/usr/bin/npm",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func installNPM(app *AppDef, send func(string)) bool {
+	npmPath := findNPM()
+	if npmPath == "" {
+		send("npm não encontrado. Instale Node.js via Homebrew: brew install node")
+		return false
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		send("Erro ao obter usuário: " + err.Error())
+		return false
+	}
+
+	send(fmt.Sprintf("Instalando %s via npm...", app.InstallPkg))
+	cmd := exec.Command(npmPath, "install", "-g", app.InstallPkg)
+	cmd.Env = append(os.Environ(),
+		"HOME="+u.HomeDir,
+		"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
+	)
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	var cmdErr error
+	go func() { cmdErr = cmd.Run(); pw.Close() }()
+
+	scanner := bufio.NewScanner(pr)
+	for scanner.Scan() {
+		line := stripANSI(scanner.Text())
+		if line != "" {
+			send(line)
+		}
+	}
+	return cmdErr == nil
+}
+
 // findPython returns the path to the best available Python 3.11+ interpreter.
 func findPython() string {
 	candidates := []string{
@@ -698,6 +767,27 @@ func uninstallApp(app *AppDef, send func(string)) bool {
 		}
 		send("Desinstalando " + app.InstallPkg + " via pip3...")
 		cmd := exec.Command("pip3", "uninstall", "-y", app.InstallPkg)
+		cmd.Env = append(os.Environ(),
+			"HOME="+u.HomeDir,
+			"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			send("Erro: " + strings.TrimSpace(string(out)))
+			return false
+		}
+		send("Desinstalado.")
+		return true
+
+	case "npm":
+		npmPath := findNPM()
+		if npmPath == "" {
+			send("npm não encontrado.")
+			return false
+		}
+		u, _ := user.Current()
+		send("Desinstalando " + app.InstallPkg + " via npm...")
+		cmd := exec.Command(npmPath, "uninstall", "-g", app.InstallPkg)
 		cmd.Env = append(os.Environ(),
 			"HOME="+u.HomeDir,
 			"PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin",
