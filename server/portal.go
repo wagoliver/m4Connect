@@ -664,6 +664,30 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 		})
 	})
 
+	mux.HandleFunc("POST /api/change-password", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var req struct {
+			CurrentUser string `json:"current_user"`
+			CurrentPass string `json:"current_pass"`
+			NewUser     string `json:"new_user"`
+			NewPass     string `json:"new_pass"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if !authenticate(req.CurrentUser, req.CurrentPass) {
+			http.Error(w, `{"error":"senha atual incorreta"}`, http.StatusUnauthorized)
+			return
+		}
+		if req.NewUser == "" || req.NewPass == "" {
+			http.Error(w, `{"error":"usuário e senha não podem ser vazios"}`, http.StatusBadRequest)
+			return
+		}
+		if err := changePassword(req.NewUser, req.NewPass); err != nil {
+			http.Error(w, `{"error":"erro ao salvar"}`, http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	})
+
 	mux.HandleFunc("POST /api/session/end", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"ok":true}`))

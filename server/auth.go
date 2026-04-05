@@ -4,16 +4,44 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
-	"os/exec"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
-// authenticate verifies username/password using macOS Directory Services.
+const defaultUsername = "admin"
+const defaultPassword = "admin"
+
+// authenticate checks user/pass against stored bcrypt hash.
+// Falls back to admin/admin if no credentials are configured yet.
 func authenticate(user, pass string) bool {
-	cmd := exec.Command("dscl", ".", "-authonly", user, pass)
-	err := cmd.Run()
-	return err == nil
+	cfg, err := loadOrCreateConfig()
+	if err != nil {
+		return false
+	}
+	if cfg.Username == "" || cfg.PasswordHash == "" {
+		return user == defaultUsername && pass == defaultPassword
+	}
+	if user != cfg.Username {
+		return false
+	}
+	return bcrypt.CompareHashAndPassword([]byte(cfg.PasswordHash), []byte(pass)) == nil
+}
+
+// changePassword updates username and password hash in config.
+func changePassword(newUser, newPass string) error {
+	cfg, err := loadOrCreateConfig()
+	if err != nil {
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	cfg.Username = newUser
+	cfg.PasswordHash = string(hash)
+	return saveConfig(cfg)
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────

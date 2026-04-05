@@ -21,6 +21,8 @@ type Config struct {
 	MacSuffix       string `json:"mac_suffix"`
 	ClientSuffix    string `json:"client_suffix"`
 	LastIface       string `json:"last_iface,omitempty"`
+	Username        string `json:"username,omitempty"`
+	PasswordHash    string `json:"password_hash,omitempty"`
 }
 
 func newToken() string {

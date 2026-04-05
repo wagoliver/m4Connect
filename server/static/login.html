@@ -109,6 +109,17 @@
       display:none;
     }
     .error.show{display:block}
+    .hint{
+      background:#1a1f1a;
+      border:1px solid #2a3a2a;
+      border-radius:8px;
+      color:#8e8e93;
+      font-size:12px;
+      padding:9px 12px;
+      text-align:center;
+    }
+    .hint b{color:#30d158}
+    .hint.hide{display:none}
   </style>
 </head>
 <body>
@@ -120,6 +131,7 @@
     </div>
 
     <div id="err" class="error">Usuário ou senha inválidos</div>
+    <div id="hint" class="hint">Acesso padrão: <b>admin / admin</b></div>
 
     <div class="field">
       <label for="user">Usuário</label>
@@ -135,7 +147,10 @@
 
   <script>
     const p = new URLSearchParams(location.search);
-    if (p.get("err")) document.getElementById("err").classList.add("show");
+    if (p.get("err")) {
+      document.getElementById("err").classList.add("show");
+      document.getElementById("hint").classList.add("hide");
+    }
   </script>
 </body>
 </html>

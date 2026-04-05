@@ -1847,3 +1847,46 @@ function closeVNC() {
   document.getElementById("vnc-overlay").classList.remove("open");
   document.getElementById("vnc-iframe").src = "";
 }
+
+// ── Security Page ─────────────────────────────────────────────────────────────
+async function secChangePassword() {
+  const curUser  = document.getElementById("sec-cur-user").value.trim();
+  const curPass  = document.getElementById("sec-cur-pass").value;
+  const newUser  = document.getElementById("sec-new-user").value.trim();
+  const newPass  = document.getElementById("sec-new-pass").value;
+  const newPass2 = document.getElementById("sec-new-pass2").value;
+  const fb       = document.getElementById("sec-feedback");
+
+  fb.className = "sec-feedback";
+  fb.textContent = "";
+
+  if (!curUser || !curPass || !newUser || !newPass) {
+    fb.className = "sec-feedback err"; fb.textContent = "Preencha todos os campos."; return;
+  }
+  if (newPass !== newPass2) {
+    fb.className = "sec-feedback err"; fb.textContent = "As novas senhas não coincidem."; return;
+  }
+
+  try {
+    const res = await fetch("/api/change-password", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({current_user: curUser, current_pass: curPass, new_user: newUser, new_pass: newPass})
+    });
+    if (res.ok) {
+      fb.className = "sec-feedback ok";
+      fb.textContent = "Credenciais atualizadas com sucesso!";
+      document.getElementById("sec-cur-user").value = "";
+      document.getElementById("sec-cur-pass").value = "";
+      document.getElementById("sec-new-user").value = "";
+      document.getElementById("sec-new-pass").value = "";
+      document.getElementById("sec-new-pass2").value = "";
+    } else {
+      const data = await res.json().catch(() => ({}));
+      fb.className = "sec-feedback err";
+      fb.textContent = data.error || "Erro ao salvar.";
+    }
+  } catch {
+    fb.className = "sec-feedback err"; fb.textContent = "Erro de conexão.";
+  }
+}

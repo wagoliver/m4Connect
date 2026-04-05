@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/shirou/gopsutil/v3 v3.23.12
+	golang.org/x/crypto v0.22.0
 	modernc.org/sqlite v1.33.1
 )
 
