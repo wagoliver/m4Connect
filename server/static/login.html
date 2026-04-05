@@ -109,29 +109,24 @@
       display:none;
     }
     .error.show{display:block}
-    .hint{
-      background:#1a1f1a;
-      border:1px solid #2a3a2a;
-      border-radius:8px;
-      color:#8e8e93;
-      font-size:12px;
-      padding:9px 12px;
-      text-align:center;
-    }
-    .hint b{color:#30d158}
-    .hint.hide{display:none}
   </style>
 </head>
 <body>
   <form class="card" method="POST" action="/login">
     <div class="brand">
-      <img class="brand-icon" src="/static/img/macmini.png" alt="Mac Mini"/>
+      <svg class="brand-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="10" width="36" height="22" rx="4" fill="#2a2b2d" stroke="#3a3b3d" stroke-width="1.5"/>
+        <rect x="10" y="14" width="28" height="14" rx="2" fill="#1a1b1d"/>
+        <rect x="18" y="34" width="12" height="3" rx="1.5" fill="#2a2b2d"/>
+        <rect x="14" y="37" width="20" height="2" rx="1" fill="#3a3b3d"/>
+        <circle cx="24" cy="21" r="4" fill="#30d158" opacity=".9"/>
+        <circle cx="24" cy="21" r="2" fill="#1a1b1d"/>
+      </svg>
       <h1>Mac Mini M4</h1>
       <p>Entre com seu usuário do sistema</p>
     </div>
 
     <div id="err" class="error">Usuário ou senha inválidos</div>
-    <div id="hint" class="hint">Acesso padrão: <b>admin / admin</b></div>
 
     <div class="field">
       <label for="user">Usuário</label>
@@ -149,7 +144,6 @@
     const p = new URLSearchParams(location.search);
     if (p.get("err")) {
       document.getElementById("err").classList.add("show");
-      document.getElementById("hint").classList.add("hide");
     }
   </script>
 </body>
