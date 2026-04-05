@@ -1,47 +1,50 @@
 package main
 
+/*
+#cgo LDFLAGS: -lpam
+#include <security/pam_appl.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int m4conv(int n, const struct pam_message **msg,
+                  struct pam_response **resp, void *data) {
+	struct pam_response *r = calloc(n, sizeof(struct pam_response));
+	if (!r) return PAM_BUF_ERR;
+	for (int i = 0; i < n; i++) {
+		r[i].resp = strdup((char *)data);
+		r[i].resp_retcode = 0;
+	}
+	*resp = r;
+	return PAM_SUCCESS;
+}
+
+static int pam_check(const char *user, const char *pass) {
+	struct pam_conv c = { m4conv, (void *)pass };
+	pam_handle_t *h = NULL;
+	int rc = pam_start("sudo", user, &c, &h);
+	if (rc == PAM_SUCCESS) rc = pam_authenticate(h, 0);
+	pam_end(h, rc);
+	return rc;
+}
+*/
+import "C"
+
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
 	"sync"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
+	"unsafe"
 )
 
-const defaultUsername = "admin"
-const defaultPassword = "admin"
-
-// authenticate checks user/pass against stored bcrypt hash.
-// Falls back to admin/admin if no credentials are configured yet.
-func authenticate(user, pass string) bool {
-	cfg, err := loadOrCreateConfig()
-	if err != nil {
-		return false
-	}
-	if cfg.Username == "" || cfg.PasswordHash == "" {
-		return user == defaultUsername && pass == defaultPassword
-	}
-	if user != cfg.Username {
-		return false
-	}
-	return bcrypt.CompareHashAndPassword([]byte(cfg.PasswordHash), []byte(pass)) == nil
-}
-
-// changePassword updates username and password hash in config.
-func changePassword(newUser, newPass string) error {
-	cfg, err := loadOrCreateConfig()
-	if err != nil {
-		return err
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	cfg.Username = newUser
-	cfg.PasswordHash = string(hash)
-	return saveConfig(cfg)
+// pamAuthenticate validates username/password via macOS PAM (sudo service).
+func pamAuthenticate(user, pass string) bool {
+	cu := C.CString(user)
+	cp := C.CString(pass)
+	defer C.free(unsafe.Pointer(cu))
+	defer C.free(unsafe.Pointer(cp))
+	return C.pam_check(cu, cp) == 0
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
