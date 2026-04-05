@@ -1,50 +1,19 @@
 package main
 
-/*
-#cgo LDFLAGS: -lpam
-#include <security/pam_appl.h>
-#include <stdlib.h>
-#include <string.h>
-
-static int m4conv(int n, const struct pam_message **msg,
-                  struct pam_response **resp, void *data) {
-	struct pam_response *r = calloc(n, sizeof(struct pam_response));
-	if (!r) return PAM_BUF_ERR;
-	for (int i = 0; i < n; i++) {
-		r[i].resp = strdup((char *)data);
-		r[i].resp_retcode = 0;
-	}
-	*resp = r;
-	return PAM_SUCCESS;
-}
-
-static int pam_check(const char *user, const char *pass) {
-	struct pam_conv c = { m4conv, (void *)pass };
-	pam_handle_t *h = NULL;
-	int rc = pam_start("sudo", user, &c, &h);
-	if (rc == PAM_SUCCESS) rc = pam_authenticate(h, 0);
-	pam_end(h, rc);
-	return rc;
-}
-*/
-import "C"
-
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"os/exec"
 	"sync"
 	"time"
-	"unsafe"
 )
 
-// pamAuthenticate validates username/password via macOS PAM.
-func pamAuthenticate(user, pass string) bool {
-	cu := C.CString(user)
-	cp := C.CString(pass)
-	defer C.free(unsafe.Pointer(cu))
-	defer C.free(unsafe.Pointer(cp))
-	return C.pam_check(cu, cp) == 0
+// authenticate verifies username/password using macOS Directory Services.
+func authenticate(user, pass string) bool {
+	cmd := exec.Command("dscl", ".", "-authonly", user, pass)
+	err := cmd.Run()
+	return err == nil
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────

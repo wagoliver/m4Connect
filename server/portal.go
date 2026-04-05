@@ -410,7 +410,7 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 		if r.Method == http.MethodPost {
 			user := r.FormValue("user")
 			pass := r.FormValue("pass")
-			if pamAuthenticate(user, pass) {
+			if authenticate(user, pass) {
 				tok := newSession()
 				http.SetCookie(w, &http.Cookie{
 					Name:     cookieName,
