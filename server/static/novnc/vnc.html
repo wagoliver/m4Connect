@@ -106,10 +106,17 @@
             window.dispatchEvent(new Event('resize'));
             const canvas = screen.querySelector('canvas');
             if (!canvas) { log('canvas: NÃO encontrado', 'err'); return; }
+
+            // Listener direto no canvas (noVNC faz stopPropagation, não chega ao #screen)
+            canvas.addEventListener('mousedown', (e) => {
+              log(`mousedown canvas (${e.clientX},${e.clientY}) | viewOnly=${rfb?.viewOnly}`, 'ok');
+            });
+
             const rect = canvas.getBoundingClientRect();
             log(`canvas nativo: ${canvas.width}x${canvas.height}`, 'info');
             log(`canvas CSS: ${Math.round(rect.width)}x${Math.round(rect.height)} em (${Math.round(rect.left)},${Math.round(rect.top)})`, 'info');
             log(`screen: ${screen.clientWidth}x${screen.clientHeight}`, 'info');
+            log(`viewOnly=${rfb.viewOnly} | focusOnClick=${rfb.focusOnClick}`, 'info');
             // Fallback: se scaleViewport não reduziu o canvas, escalar manualmente
             if (rect.width > screen.clientWidth + 10 || rect.height > screen.clientHeight + 10) {
               log('scaleViewport inativo — aplicando escala manual', 'err');
