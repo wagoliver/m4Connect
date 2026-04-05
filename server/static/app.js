@@ -1837,17 +1837,10 @@ document.addEventListener("keydown", e => {
 
 // ── VNC Overlay ───────────────────────────────────────────────────────────────
 function openVNC() {
-  const overlay = document.getElementById("vnc-overlay");
-  const iframe  = document.getElementById("vnc-iframe");
-  overlay.classList.add("open");
-  if (!iframe.src || iframe.src === window.location.href) {
-    iframe.src = "/static/novnc/vnc.html";
-  }
+  window.open("/static/novnc/vnc.html", "vnc",
+    "width=1280,height=800,menubar=no,toolbar=no,location=no,status=no");
 }
-function closeVNC() {
-  document.getElementById("vnc-overlay").classList.remove("open");
-  document.getElementById("vnc-iframe").src = "";
-}
+function closeVNC() {}
 
 // ── Security Page ─────────────────────────────────────────────────────────────
 async function loadSecurityInfo() {
