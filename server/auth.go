@@ -21,7 +21,7 @@ static int m4conv(int n, const struct pam_message **msg,
 static int pam_check(const char *user, const char *pass) {
 	struct pam_conv c = { m4conv, (void *)pass };
 	pam_handle_t *h = NULL;
-	int rc = pam_start("login", user, &c, &h);
+	int rc = pam_start("sudo", user, &c, &h);
 	if (rc == PAM_SUCCESS) rc = pam_authenticate(h, 0);
 	pam_end(h, rc);
 	return rc;
