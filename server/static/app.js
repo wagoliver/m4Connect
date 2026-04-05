@@ -29,6 +29,7 @@ document.querySelectorAll(".nav-item").forEach(item => {
     if (page === "llm")        startLLMPolling();
     if (page === "inference")  initInference();
     if (page === "apps")       initApps();
+    if (page === "security")   loadSecurityInfo();
   });
 });
 
@@ -1849,44 +1850,38 @@ function closeVNC() {
 }
 
 // ── Security Page ─────────────────────────────────────────────────────────────
-async function secChangePassword() {
-  const curUser  = document.getElementById("sec-cur-user").value.trim();
-  const curPass  = document.getElementById("sec-cur-pass").value;
-  const newUser  = document.getElementById("sec-new-user").value.trim();
-  const newPass  = document.getElementById("sec-new-pass").value;
-  const newPass2 = document.getElementById("sec-new-pass2").value;
-  const fb       = document.getElementById("sec-feedback");
-
-  fb.className = "sec-feedback";
-  fb.textContent = "";
-
-  if (!curUser || !curPass || !newUser || !newPass) {
-    fb.className = "sec-feedback err"; fb.textContent = "Preencha todos os campos."; return;
-  }
-  if (newPass !== newPass2) {
-    fb.className = "sec-feedback err"; fb.textContent = "As novas senhas não coincidem."; return;
-  }
-
+async function loadSecurityInfo() {
   try {
-    const res = await fetch("/api/change-password", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({current_user: curUser, current_pass: curPass, new_user: newUser, new_pass: newPass})
-    });
+    const d = await fetch("/api/session/info").then(r => r.json());
+    const userEl    = document.getElementById("sec-user");
+    const expiresEl = document.getElementById("sec-expires");
+    const countEl   = document.getElementById("sec-count");
+    if (userEl)    userEl.textContent = d.user || "—";
+    if (countEl)   countEl.textContent = d.active_sessions ?? "—";
+    if (expiresEl && d.expires) {
+      const exp  = new Date(d.expires * 1000);
+      const diff = Math.round((exp - Date.now()) / 60000);
+      const h    = Math.floor(diff / 60);
+      const m    = diff % 60;
+      expiresEl.textContent = `${exp.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} (${h}h ${m}m restantes)`;
+    }
+  } catch (_) {}
+}
+
+async function secRevokeAll() {
+  const btn = document.getElementById("sec-revoke-btn");
+  const fb  = document.getElementById("sec-feedback");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/session/revoke-all", {method: "POST"});
     if (res.ok) {
-      fb.className = "sec-feedback ok";
-      fb.textContent = "Credenciais atualizadas com sucesso!";
-      document.getElementById("sec-cur-user").value = "";
-      document.getElementById("sec-cur-pass").value = "";
-      document.getElementById("sec-new-user").value = "";
-      document.getElementById("sec-new-pass").value = "";
-      document.getElementById("sec-new-pass2").value = "";
+      window.location.href = "/login";
     } else {
-      const data = await res.json().catch(() => ({}));
-      fb.className = "sec-feedback err";
-      fb.textContent = data.error || "Erro ao salvar.";
+      if (fb) { fb.className = "sec-feedback err"; fb.textContent = "Erro ao encerrar sessões."; }
+      if (btn) btn.disabled = false;
     }
   } catch {
-    fb.className = "sec-feedback err"; fb.textContent = "Erro de conexão.";
+    if (fb) { fb.className = "sec-feedback err"; fb.textContent = "Erro de conexão."; }
+    if (btn) btn.disabled = false;
   }
 }

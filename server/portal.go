@@ -411,7 +411,7 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 			user := r.FormValue("user")
 			pass := r.FormValue("pass")
 			if pamAuthenticate(user, pass) {
-				tok := newSession()
+				tok := newSession(user)
 				http.SetCookie(w, &http.Cookie{
 					Name:     cookieName,
 					Value:    tok,
@@ -669,6 +669,31 @@ func startPortal(ctx context.Context, cancelSession context.CancelFunc, bindIP s
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"ok":true}`))
 		go cancelSession()
+	})
+
+	mux.HandleFunc("GET /api/session/info", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		c, err := r.Cookie(cookieName)
+		if err != nil {
+			http.Error(w, `{"error":"no session"}`, http.StatusUnauthorized)
+			return
+		}
+		entry, ok := getSessionEntry(c.Value)
+		if !ok {
+			http.Error(w, `{"error":"invalid session"}`, http.StatusUnauthorized)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"user":            entry.user,
+			"expires":         entry.expires.Unix(),
+			"active_sessions": sessionCount(),
+		})
+	})
+
+	mux.HandleFunc("POST /api/session/revoke-all", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		revokeAllSessions()
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
 	mux.HandleFunc("/ws/terminal", handleTerminal)

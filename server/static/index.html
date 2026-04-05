@@ -881,38 +881,53 @@
             Segurança
           </div>
 
+          <!-- Sessão atual -->
           <div class="sec-card">
-            <div class="sec-card-title">Alterar credenciais do portal</div>
-            <div class="sec-card-desc">A senha é armazenada como hash bcrypt no config do servidor.</div>
-
-            <div class="sec-form" id="sec-form">
-              <div class="sec-field">
-                <label>Usuário atual</label>
-                <input type="text" id="sec-cur-user" autocomplete="username"/>
+            <div class="sec-card-title">Sessão atual</div>
+            <div class="sec-rows">
+              <div class="sec-row">
+                <span class="sec-row-label">Usuário</span>
+                <span class="sec-row-value" id="sec-user">—</span>
               </div>
-              <div class="sec-field">
-                <label>Senha atual</label>
-                <input type="password" id="sec-cur-pass" autocomplete="current-password"/>
+              <div class="sec-row">
+                <span class="sec-row-label">Expira em</span>
+                <span class="sec-row-value" id="sec-expires">—</span>
               </div>
-              <div class="sec-divider"></div>
-              <div class="sec-field">
-                <label>Novo usuário</label>
-                <input type="text" id="sec-new-user" autocomplete="new-password"/>
+              <div class="sec-row">
+                <span class="sec-row-label">Método</span>
+                <span class="sec-badge">macOS PAM</span>
               </div>
-              <div class="sec-field">
-                <label>Nova senha</label>
-                <input type="password" id="sec-new-pass" autocomplete="new-password"/>
-              </div>
-              <div class="sec-field">
-                <label>Confirmar nova senha</label>
-                <input type="password" id="sec-new-pass2" autocomplete="new-password"/>
-              </div>
-
-              <div class="sec-feedback" id="sec-feedback"></div>
-
-              <button class="sec-btn" onclick="secChangePassword()">Salvar</button>
             </div>
           </div>
+
+          <!-- Sessões ativas -->
+          <div class="sec-card">
+            <div class="sec-card-title">Sessões ativas</div>
+            <div class="sec-rows">
+              <div class="sec-row">
+                <span class="sec-row-label">Abertas agora</span>
+                <span class="sec-row-value" id="sec-count">—</span>
+              </div>
+            </div>
+            <button class="sec-revoke-btn" id="sec-revoke-btn" onclick="secRevokeAll()">
+              Encerrar todas as sessões
+            </button>
+            <div class="sec-feedback" id="sec-feedback"></div>
+          </div>
+
+          <!-- Informativo -->
+          <div class="sec-card sec-card-info">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px">
+              <circle cx="7" cy="7" r="5.5"/>
+              <line x1="7" y1="6" x2="7" y2="10"/>
+              <circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/>
+            </svg>
+            <div>
+              <div class="sec-card-title" style="margin-bottom:4px">Credenciais</div>
+              <div class="sec-card-desc">As credenciais são gerenciadas pelo macOS. Para alterar sua senha, use <b>Preferências do Sistema → Usuários e Grupos</b>.</div>
+            </div>
+          </div>
+
         </div>
       </div>
 

@@ -52,19 +52,24 @@ func pamAuthenticate(user, pass string) bool {
 const cookieName = "m4sid"
 const sessionTTL = 24 * time.Hour
 
-type sessionMap struct {
-	mu   sync.Mutex
-	data map[string]time.Time
+type sessionEntry struct {
+	user    string
+	expires time.Time
 }
 
-var sessions = &sessionMap{data: make(map[string]time.Time)}
+type sessionMap struct {
+	mu   sync.Mutex
+	data map[string]sessionEntry
+}
 
-func newSession() string {
+var sessions = &sessionMap{data: make(map[string]sessionEntry)}
+
+func newSession(user string) string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	tok := hex.EncodeToString(b)
 	sessions.mu.Lock()
-	sessions.data[tok] = time.Now().Add(sessionTTL)
+	sessions.data[tok] = sessionEntry{user: user, expires: time.Now().Add(sessionTTL)}
 	sessions.mu.Unlock()
 	return tok
 }
@@ -72,21 +77,52 @@ func newSession() string {
 func validSession(tok string) bool {
 	sessions.mu.Lock()
 	defer sessions.mu.Unlock()
-	exp, ok := sessions.data[tok]
+	entry, ok := sessions.data[tok]
 	if !ok {
 		return false
 	}
-	if time.Now().After(exp) {
+	if time.Now().After(entry.expires) {
 		delete(sessions.data, tok)
 		return false
 	}
 	return true
 }
 
+func getSessionEntry(tok string) (sessionEntry, bool) {
+	sessions.mu.Lock()
+	defer sessions.mu.Unlock()
+	entry, ok := sessions.data[tok]
+	if !ok || time.Now().After(entry.expires) {
+		return sessionEntry{}, false
+	}
+	return entry, true
+}
+
 func deleteSession(tok string) {
 	sessions.mu.Lock()
 	delete(sessions.data, tok)
 	sessions.mu.Unlock()
+}
+
+func revokeAllSessions() {
+	sessions.mu.Lock()
+	sessions.data = make(map[string]sessionEntry)
+	sessions.mu.Unlock()
+}
+
+func sessionCount() int {
+	sessions.mu.Lock()
+	defer sessions.mu.Unlock()
+	now := time.Now()
+	count := 0
+	for tok, entry := range sessions.data {
+		if now.After(entry.expires) {
+			delete(sessions.data, tok)
+		} else {
+			count++
+		}
+	}
+	return count
 }
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
