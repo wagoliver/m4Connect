@@ -18,7 +18,13 @@
     #pwd-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#8e8e93;font-size:11.5px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:background .15s,color .15s}
     #pwd-btn:hover{background:rgba(255,255,255,.12);color:#e8e8ea}
     #status{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-family:"SF Mono",monospace;font-size:11px;color:#8e8e93;background:rgba(13,13,14,.85);border:1px solid #1e1f21;border-radius:6px;padding:4px 10px;pointer-events:none;white-space:nowrap}
-    #log-panel{position:fixed;top:8px;left:8px;right:8px;max-height:120px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
+
+    /* ── Log colapsável ── */
+    #log-toggle{position:fixed;top:8px;right:8px;z-index:21;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.75);border:1px solid #1e1f21;border-radius:5px;padding:3px 8px;cursor:pointer;user-select:none;transition:color .15s}
+    #log-toggle:hover{color:#e8e8ea}
+    #log-toggle.has-error{color:#ff453a;border-color:#ff453a}
+    #log-panel{display:none;position:fixed;top:30px;right:8px;width:360px;max-height:160px;overflow-y:auto;font-family:"SF Mono",monospace;font-size:10px;color:#8e8e93;background:rgba(0,0,0,.88);border:1px solid #1e1f21;border-radius:6px;padding:6px 8px;z-index:20;pointer-events:none}
+    #log-panel.open{display:block}
     #log-panel .ok{color:#30d158}
     #log-panel .err{color:#ff453a}
     #log-panel .info{color:#4a90d9}
@@ -37,18 +43,26 @@
   </div>
 
   <div id="status">Conectando…</div>
+  <button id="log-toggle">LOG ▸</button>
   <div id="log-panel"></div>
 
   <script type="module">
     import RFB from './core/rfb.js';
 
-    const screen   = document.getElementById('screen');
-    const status   = document.getElementById('status');
-    const overlay  = document.getElementById('pwd-overlay');
-    const pwdInput = document.getElementById('pwd-input');
-    const pwdBtn   = document.getElementById('pwd-btn');
-    const pwdError = document.getElementById('pwd-error');
-    const logPanel = document.getElementById('log-panel');
+    const screen    = document.getElementById('screen');
+    const status    = document.getElementById('status');
+    const overlay   = document.getElementById('pwd-overlay');
+    const pwdInput  = document.getElementById('pwd-input');
+    const pwdBtn    = document.getElementById('pwd-btn');
+    const pwdError  = document.getElementById('pwd-error');
+    const logPanel  = document.getElementById('log-panel');
+    const logToggle = document.getElementById('log-toggle');
+
+    // ── Log colapsável ────────────────────────────────────────────────────────
+    logToggle.addEventListener('click', () => {
+      logPanel.classList.toggle('open');
+      logToggle.textContent = logPanel.classList.contains('open') ? 'LOG ▾' : 'LOG ▸';
+    });
 
     function log(msg, type = 'info') {
       const t = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -57,20 +71,26 @@
       el.textContent = `[${t}] ${msg}`;
       logPanel.appendChild(el);
       logPanel.scrollTop = logPanel.scrollHeight;
+      if (type === 'err') {
+        logToggle.classList.add('has-error');
+        logPanel.classList.add('open');
+        logToggle.textContent = 'LOG ▾';
+      }
     }
 
+    // ── VNC ───────────────────────────────────────────────────────────────────
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const wsURL = `${proto}://${location.host}/ws/vnc`;
     let rfb = null;
 
     function connect() {
       if (rfb) { try { rfb.disconnect(); } catch(e) {} rfb = null; }
-      log(`Conectando...`);
+      log('Conectando...');
       status.textContent = 'Conectando…';
       try {
         rfb = new RFB(screen, wsURL);
         rfb.scaleViewport = true;
-        rfb.resizeSession = false;
+        rfb.resizeSession = true;
         rfb.viewOnly = false;
         rfb.focusOnClick = true;
 
@@ -78,23 +98,36 @@
           status.textContent = 'Conectado';
           log('Conectado!', 'ok');
           overlay.classList.remove('visible');
-          // log panel fica visível para debug
           setTimeout(() => rfb && rfb.focus(), 200);
-          // loga estado do canvas após foco
+
+          // Força recálculo de escala no contexto do iframe
+          window.dispatchEvent(new Event('resize'));
           setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
             const canvas = screen.querySelector('canvas');
-            if (canvas) {
-              log(`canvas: ${canvas.width}x${canvas.height} | tabIndex=${canvas.tabIndex} | focused=${document.activeElement === canvas}`, 'info');
+            if (!canvas) { log('canvas: NÃO encontrado', 'err'); return; }
+            const rect = canvas.getBoundingClientRect();
+            log(`canvas nativo: ${canvas.width}x${canvas.height}`, 'info');
+            log(`canvas CSS: ${Math.round(rect.width)}x${Math.round(rect.height)} em (${Math.round(rect.left)},${Math.round(rect.top)})`, 'info');
+            log(`screen: ${screen.clientWidth}x${screen.clientHeight}`, 'info');
+            // Fallback: se scaleViewport não reduziu o canvas, escalar manualmente
+            if (rect.width > screen.clientWidth + 10 || rect.height > screen.clientHeight + 10) {
+              log('scaleViewport inativo — aplicando escala manual', 'err');
+              const sx = screen.clientWidth / canvas.width;
+              const sy = screen.clientHeight / canvas.height;
+              const s  = Math.min(sx, sy);
+              canvas.style.width  = (canvas.width  * s) + 'px';
+              canvas.style.height = (canvas.height * s) + 'px';
+              log(`escala manual: ${s.toFixed(3)}x → ${Math.round(canvas.width*s)}x${Math.round(canvas.height*s)}`, 'ok');
             } else {
-              log('canvas: NÃO encontrado no DOM', 'err');
+              log(`scaleViewport OK — escala: ${(rect.width/canvas.width).toFixed(3)}x`, 'ok');
             }
-          }, 400);
+          }, 600);
         });
 
         rfb.addEventListener('disconnect', (e) => {
           const msg = e.detail.clean ? 'Desconectado' : `Conexão encerrada${e.detail.reason ? ': ' + e.detail.reason : ''}`;
           status.textContent = msg;
-          logPanel.style.display = 'block';
           log(msg, e.detail.clean ? 'info' : 'err');
         });
 
@@ -132,7 +165,7 @@
     pwdBtn.addEventListener('click', sendPassword);
     pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPassword(); });
 
-    // Refocus noVNC canvas on any mouse interaction with the screen area
+    // Refocus noVNC canvas em interação com a área da tela
     screen.addEventListener('mousedown', (e) => {
       window.focus();
       if (rfb) rfb.focus();
@@ -141,7 +174,7 @@
     });
     screen.addEventListener('mouseenter', () => { if (rfb) rfb.focus(); });
 
-    // Log keyboard events to verify input is reaching the iframe
+    // Log de teclado para diagnóstico
     document.addEventListener('keydown', (e) => {
       log(`keydown: ${e.key} | focused=${document.activeElement?.tagName}`, 'info');
     });
